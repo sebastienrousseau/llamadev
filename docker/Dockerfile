@@ -35,7 +35,7 @@ RUN apk add --no-cache git wget tar \
     echo "Unsupported architecture: $ARCH"; \
     exit 1; \
     fi \
-    && wget -O /tmp/gitleaks.tar.gz "https://github.com/zricethezav/gitleaks/releases/download/v8.18.0/gitleaks_8.18.0_linux_${GITLEAKS_ARCH}.tar.gz" \
+    && wget -O /tmp/gitleaks.tar.gz "https://github.com/zricethezav/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_${GITLEAKS_ARCH}.tar.gz" \
     && tar -xzf /tmp/gitleaks.tar.gz -C /usr/local/bin \
     && chmod +x /usr/local/bin/gitleaks \
     && rm -f /tmp/gitleaks.tar.gz
@@ -89,7 +89,7 @@ RUN curl -fsSL https://astral.sh/uv/install.sh | sh \
     && rm -rf /root/.local
 
 # Pre-install Python packages using uv for better performance
-COPY requirements.txt /tmp/requirements.txt
+COPY ../requirements.txt /tmp/requirements.txt
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN /usr/local/bin/uv pip install --no-cache-dir -r /tmp/requirements.txt \
     && /usr/local/bin/uv pip install --no-cache-dir pip-audit \
@@ -376,8 +376,13 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     which nvim > /dev/null && which ollama > /dev/null && \
     (pgrep ollama > /dev/null || exit 0)
 
+# Copy the entrypoint script and set permissions
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Set the entrypoint and default command
-ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
 USER ${USERNAME}
 WORKDIR "${USER_HOME}/code"
-CMD ["/bin/bash"]
+
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
+CMD ["/bin/bash", "-c", "exec /start.sh"]

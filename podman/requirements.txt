@@ -1,0 +1,30 @@
+# Core Development Tools
+bandit                  # Security linting
+codespell               # Spell checking
+mypy                    # Keep one type checker (more established than pyright)
+pyright                 # TypeScript type checker for Python
+ruff                    # Fast linter + formatter (replaces black/pylint/isort)
+
+# Testing
+hypothesis              # Property-based testing
+pytest                  # Core testing
+pytest-asyncio          # Async testing support
+pytest-cov              # Code coverage
+pytest-mock             # Essential mocking
+pytest-xdist            # Parallel test execution
+types-setuptools        # Type hints for setuptools
+
+# Documentation
+mdformat
+mdformat-black
+
+# Security & Monitoring
+pip-audit               # Security auditing
+structlog               # Structured logging
+
+# Essential Tools
+debugpy                 # Debugging support
+pre-commit              # Git hooks
+rich                    # Console output enhancements
+typer                   # CLI building (pairs well with rich)
+termcolor               # Console colors
