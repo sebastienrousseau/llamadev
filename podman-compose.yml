@@ -1,0 +1,41 @@
+services:
+  llamadev:
+    image: llamadev
+    container_name: llamadev
+
+    build:
+      context: .
+      args:
+        PYTHON_VERSION: "${PYTHON_VERSION}"
+        USERNAME: "${USERNAME}"
+        USER_HOME: "${USER_HOME}"
+
+    env_file:
+      - .env
+
+    environment:
+      PATH: "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+      LANG: "C.UTF-8"
+      LC_ALL: "C.UTF-8"
+      PYTHON_VERSION: "${PYTHON_VERSION}"
+      USERNAME: "${USERNAME}"
+      USER_HOME: "${USER_HOME}"
+      OLLAMA_HOST: "0.0.0.0:11434"
+
+    user: "1000:1000"
+    working_dir: "/home/llamadev/code"
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
+
+    ports:
+      - "11434:11434"
+
+    volumes:
+      - llamadev:/home/llamadev/.ollama
+      - ./start.sh:/start.sh
+
+    command: ["/bin/bash", "-c", "source /opt/venv/bin/activate && exec /start.sh"]
+
+volumes:
+  llamadev: {}
