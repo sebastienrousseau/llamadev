@@ -300,6 +300,8 @@ COPY --chown=${USERNAME}:${USERNAME} \
     plugins/coding.lua     "${USER_HOME}/.config/nvim/lua/plugins/coding.lua"
 COPY --chown=${USERNAME}:${USERNAME} \
     plugins/toggleterm.lua "${USER_HOME}/.config/nvim/lua/plugins/toggleterm.lua"
+COPY --chown=${USERNAME}:${USERNAME} \
+    plugins/keymaps.lua    "${USER_HOME}/.config/nvim/lua/plugins/keymaps.lua"
 
 ###############################################################################
 # Additional security hardening measures

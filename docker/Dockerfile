@@ -89,7 +89,7 @@ RUN curl -fsSL https://astral.sh/uv/install.sh | sh \
     && rm -rf /root/.local
 
 # Pre-install Python packages using uv for better performance
-COPY ../requirements.txt /tmp/requirements.txt
+COPY requirements.txt /tmp/requirements.txt
 ENV PATH="/opt/venv/bin:${PATH}"
 RUN /usr/local/bin/uv pip install --no-cache-dir -r /tmp/requirements.txt \
     && /usr/local/bin/uv pip install --no-cache-dir pip-audit \
@@ -298,6 +298,8 @@ COPY --chown=${USERNAME}:${USERNAME} \
     plugins/coding.lua     "${USER_HOME}/.config/nvim/lua/plugins/coding.lua"
 COPY --chown=${USERNAME}:${USERNAME} \
     plugins/toggleterm.lua "${USER_HOME}/.config/nvim/lua/plugins/toggleterm.lua"
+COPY --chown=${USERNAME}:${USERNAME} \
+    plugins/keymaps.lua    "${USER_HOME}/.config/nvim/lua/plugins/keymaps.lua"
 
 ###############################################################################
 # Additional security hardening measures
