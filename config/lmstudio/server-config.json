@@ -1,0 +1,53 @@
+{
+  "name": "LlamaDev Server Configuration",
+  "description": "LM Studio local server settings optimized for CodeLlama 7B",
+  "version": "1.0.0",
+
+  "server": {
+    "host": "0.0.0.0",
+    "port": 1234,
+    "cors": {
+      "enabled": true,
+      "allowedOrigins": ["*"]
+    },
+    "requestTimeout": 300000,
+    "maxConcurrentRequests": 2
+  },
+
+  "model": {
+    "recommended": "codellama-7b-code.Q4_K_M.gguf",
+    "alternates": [
+      "codellama-7b-instruct.Q4_K_M.gguf",
+      "codellama-13b-code.Q4_K_M.gguf"
+    ]
+  },
+
+  "defaults": {
+    "contextLength": 4096,
+    "gpuLayers": -1,
+    "threads": 8,
+    "batchSize": 512,
+    "flashAttention": true,
+    "mmap": true,
+    "mlock": false
+  },
+
+  "endpoints": {
+    "chat": "/v1/chat/completions",
+    "completions": "/v1/completions",
+    "embeddings": "/v1/embeddings",
+    "models": "/v1/models"
+  },
+
+  "compatibility": {
+    "openaiApi": true,
+    "streamingEnabled": true
+  },
+
+  "notes": [
+    "Ensure GPU drivers are up to date for optimal performance",
+    "For CPU-only: set gpuLayers to 0",
+    "Flash attention requires compatible GPU (RTX 30xx+, RX 6xxx+)",
+    "Increase contextLength to 8192 or 16384 if you have >8GB VRAM"
+  ]
+}

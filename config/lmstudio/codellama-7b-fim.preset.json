@@ -1,0 +1,50 @@
+{
+  "name": "CodeLlama 7B FIM - Code Completion",
+  "description": "Optimized preset for inline code completion using Fill-in-Middle format",
+  "version": "1.0.0",
+  "author": "LlamaDev",
+
+  "inferenceParams": {
+    "temperature": 0.1,
+    "topP": 0.8,
+    "topK": 20,
+    "minP": 0.05,
+    "repeatPenalty": 1.2,
+    "repeatPenaltyTokens": 64,
+    "presencePenalty": 0.0,
+    "frequencyPenalty": 0.0,
+    "maxTokens": 256,
+    "stopStrings": [
+      "<|endoftext|>",
+      "</s>",
+      " <MID>",
+      "<PRE>",
+      "<SUF>",
+      "\n\n",
+      "\ndef ",
+      "\nclass ",
+      "\nimport ",
+      "\nfrom "
+    ]
+  },
+
+  "contextParams": {
+    "contextLength": 2048,
+    "batchSize": 256,
+    "threads": 8,
+    "gpuLayers": -1
+  },
+
+  "samplingParams": {
+    "mirostat": 0,
+    "seed": -1
+  },
+
+  "systemPrompt": "Complete the code. Output only the missing code, nothing else.",
+
+  "promptTemplate": {
+    "type": "custom",
+    "template": "<PRE> {{prompt}} <SUF>{{suffix}} <MID>",
+    "stopSequence": "</s>"
+  }
+}

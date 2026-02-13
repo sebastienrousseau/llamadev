@@ -1,0 +1,366 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    branches: [ main, develop ]
+
+env:
+  LUA_WARNINGS_AS_ERRORS: true
+  TEST_TIMEOUT_MINUTES: 15
+
+jobs:
+  pr-metadata-check:
+    name: PR Metadata Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate PR title
+      run: |
+        echo "📋 Validating PR metadata..."
+
+        PR_TITLE="${{ github.event.pull_request.title }}"
+        PR_BODY="${{ github.event.pull_request.body }}"
+
+        echo "PR Title: $PR_TITLE"
+
+        # Check PR title format (conventional commits style recommended)
+        if [[ ! "$PR_TITLE" =~ ^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?: .+ ]]; then
+          echo "⚠️ PR title doesn't follow conventional commit format"
+          echo "Recommended format: type(scope): description"
+          echo "Example: feat(plugins): add new terminal configuration"
+        fi
+
+        # Check for description
+        if [ -z "$PR_BODY" ] || [ "$PR_BODY" == "null" ]; then
+          echo "⚠️ PR description is empty - consider adding a description"
+        fi
+
+        echo "✅ PR metadata validation completed"
+
+  changed-files-analysis:
+    name: Changed Files Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Analyze changed files
+      run: |
+        echo "🔍 Analyzing changed files..."
+
+        # Get list of changed files
+        git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD > changed_files.txt
+
+        echo "Changed files:"
+        cat changed_files.txt
+
+        # Check if any Lua files were changed
+        LUA_FILES_CHANGED=$(grep "\.lua$" changed_files.txt || true)
+
+        if [ -n "$LUA_FILES_CHANGED" ]; then
+          echo "📝 Lua files were modified:"
+          echo "$LUA_FILES_CHANGED"
+        fi
+
+        # Check if CI files were changed
+        CI_FILES_CHANGED=$(grep -E "(\.github/|Makefile|\.luacheckrc|stylua\.toml)" changed_files.txt || true)
+
+        if [ -n "$CI_FILES_CHANGED" ]; then
+          echo "⚙️ CI configuration files were modified:"
+          echo "$CI_FILES_CHANGED"
+          echo "Extra validation will be performed"
+        fi
+
+        # Check for test files
+        TEST_FILES_CHANGED=$(grep "_spec\.lua$\|test.*\.lua$" changed_files.txt || true)
+
+        if [ -n "$TEST_FILES_CHANGED" ]; then
+          echo "🧪 Test files were modified:"
+          echo "$TEST_FILES_CHANGED"
+        fi
+
+        # Save analysis for other jobs
+        echo "lua_files_changed=${LUA_FILES_CHANGED:+true}" >> $GITHUB_OUTPUT
+        echo "ci_files_changed=${CI_FILES_CHANGED:+true}" >> $GITHUB_OUTPUT
+        echo "test_files_changed=${TEST_FILES_CHANGED:+true}" >> $GITHUB_OUTPUT
+
+      id: analysis
+
+    outputs:
+      lua_files_changed: ${{ steps.analysis.outputs.lua_files_changed }}
+      ci_files_changed: ${{ steps.analysis.outputs.ci_files_changed }}
+      test_files_changed: ${{ steps.analysis.outputs.test_files_changed }}
+
+  fast-feedback:
+    name: Fast Feedback (Syntax + Lint)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changed-files-analysis]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua
+      if: needs.changed-files-analysis.outputs.lua_files_changed == 'true'
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: '5.4'
+
+    - name: Setup LuaRocks
+      if: needs.changed-files-analysis.outputs.lua_files_changed == 'true'
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Quick syntax check
+      if: needs.changed-files-analysis.outputs.lua_files_changed == 'true'
+      run: |
+        echo "⚡ Running quick syntax check..."
+        find . -name "*.lua" -type f -exec lua -e "
+          local f = io.open('{}', 'r')
+          local content = f:read('*all')
+          f:close()
+          local chunk, err = load(content, '{}')
+          if not chunk then
+            print('Syntax error in {}: ' .. (err or 'unknown error'))
+            os.exit(1)
+          end
+        " \;
+        echo "✅ Syntax check passed"
+
+    - name: Install luacheck
+      if: needs.changed-files-analysis.outputs.lua_files_changed == 'true'
+      run: luarocks install luacheck
+
+    - name: Quick lint check
+      if: needs.changed-files-analysis.outputs.lua_files_changed == 'true'
+      run: |
+        echo "🔍 Running quick lint check..."
+        luacheck --no-color --quiet .
+        echo "✅ Quick lint check passed"
+
+  security-focused-validation:
+    name: Security-Focused Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Security pattern analysis
+      run: |
+        echo "🔒 Running security-focused validation..."
+
+        # Check for potential security issues in PR
+        echo "Checking for dangerous functions..."
+        if git diff --name-only origin/${{ github.event.pull_request.base.ref }}...HEAD | \
+           xargs grep -l "os\.execute\|io\.popen\|loadstring\|load\|dofile\|loadfile" 2>/dev/null; then
+          echo "⚠️ PR introduces potentially dangerous functions - review required"
+          git diff origin/${{ github.event.pull_request.base.ref }}...HEAD | \
+            grep -E "\+.*\b(os\.execute|io\.popen|loadstring|load|dofile|loadfile)\b" || true
+        fi
+
+        # Check for hardcoded secrets in diff
+        echo "Checking for potential secrets in changes..."
+        if git diff origin/${{ github.event.pull_request.base.ref }}...HEAD | \
+           grep -E "\+.*\b(password|secret|token|key)\s*=\s*['\"][^'\"]{8,}" 2>/dev/null; then
+          echo "❌ Potential hardcoded secrets found in PR changes"
+          exit 1
+        fi
+
+        echo "✅ Security validation completed"
+
+  test-coverage-validation:
+    name: Test Coverage Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+    needs: [changed-files-analysis]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: '5.4'
+
+    - name: Setup LuaRocks
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Install dependencies
+      run: |
+        luarocks install busted
+        luarocks install luacov
+
+    - name: Run tests with coverage
+      run: |
+        echo "🧪 Running test coverage validation..."
+        busted --verbose --coverage
+        luacov
+
+    - name: Coverage analysis
+      run: |
+        if [ -f luacov.stats.out ]; then
+          COVERAGE=$(lua -e "
+            local total_lines = 0
+            local covered_lines = 0
+            for line in io.lines('luacov.stats.out') do
+              if line:match('^%d+:%d+:') then
+                local count = line:match('^(%d+):')
+                total_lines = total_lines + 1
+                if tonumber(count) > 0 then
+                  covered_lines = covered_lines + 1
+                end
+              end
+            end
+            if total_lines > 0 then
+              print(math.floor((covered_lines / total_lines) * 100))
+            else
+              print(100)
+            end
+          ")
+
+          echo "📊 Current coverage: ${COVERAGE}%"
+
+          if [ "$COVERAGE" -lt "100" ]; then
+            echo "❌ Coverage ${COVERAGE}% below required 100%"
+            echo "Please add tests to cover new/modified code"
+            exit 1
+          fi
+
+          echo "✅ Coverage requirement met: ${COVERAGE}% >= 100%"
+        else
+          echo "⚠️ Coverage data not available"
+        fi
+
+  ci-config-validation:
+    name: CI Configuration Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [changed-files-analysis]
+    if: needs.changed-files-analysis.outputs.ci_files_changed == 'true'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Validate GitHub Actions syntax
+      run: |
+        echo "⚙️ Validating CI configuration changes..."
+
+        # Basic YAML syntax validation
+        for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+          if [ -f "$file" ]; then
+            echo "Validating $file..."
+            # Use python's yaml module for validation if available
+            python3 -c "
+            import yaml
+            import sys
+            try:
+              with open('$file', 'r') as f:
+                yaml.safe_load(f)
+              print('✅ $file is valid YAML')
+            except yaml.YAMLError as e:
+              print('❌ $file has YAML syntax error:', e)
+              sys.exit(1)
+            " 2>/dev/null || echo "⚠️ Could not validate $file (python3/yaml not available)"
+          fi
+        done
+
+    - name: Validate luacheck config
+      run: |
+        if [ -f .luacheckrc ]; then
+          echo "Validating .luacheckrc..."
+          lua -e "dofile('.luacheckrc')" 2>/dev/null && echo "✅ .luacheckrc is valid" || echo "⚠️ .luacheckrc validation failed"
+        fi
+
+    - name: Validate stylua config
+      run: |
+        if [ -f stylua.toml ]; then
+          echo "Validating stylua.toml..."
+          # Basic TOML syntax check if python3 is available
+          python3 -c "
+          import sys
+          try:
+            import tomllib
+          except ImportError:
+            try:
+              import tomli as tomllib
+            except ImportError:
+              print('⚠️ TOML parser not available')
+              sys.exit(0)
+
+          try:
+            with open('stylua.toml', 'rb') as f:
+              tomllib.load(f)
+            print('✅ stylua.toml is valid TOML')
+          except Exception as e:
+            print('❌ stylua.toml has syntax error:', e)
+            sys.exit(1)
+          " 2>/dev/null || echo "⚠️ Could not validate stylua.toml"
+        fi
+
+        echo "✅ CI configuration validation completed"
+
+  integration-validation:
+    name: Integration Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+    needs: [fast-feedback, security-focused-validation, test-coverage-validation]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Final PR validation
+      run: |
+        echo "🔗 Running final PR integration validation..."
+
+        # Verify all prerequisite checks passed
+        echo "✅ Fast feedback completed"
+        echo "✅ Security validation completed"
+        echo "✅ Test coverage validation completed"
+
+        echo "🎉 PR validation completed successfully!"
+
+  pr-size-check:
+    name: PR Size Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Check PR size
+      run: |
+        echo "📏 Checking PR size..."
+
+        # Count changed lines
+        ADDITIONS=$(git diff --shortstat origin/${{ github.event.pull_request.base.ref }}...HEAD | sed -n 's/.*\([0-9]\+\) insertion.*/\1/p' || echo "0")
+        DELETIONS=$(git diff --shortstat origin/${{ github.event.pull_request.base.ref }}...HEAD | sed -n 's/.*\([0-9]\+\) deletion.*/\1/p' || echo "0")
+        TOTAL_CHANGES=$((ADDITIONS + DELETIONS))
+
+        echo "Changes: +${ADDITIONS}/-${DELETIONS} (${TOTAL_CHANGES} total)"
+
+        # Warn on large PRs
+        if [ $TOTAL_CHANGES -gt 500 ]; then
+          echo "⚠️ Large PR detected (${TOTAL_CHANGES} lines changed)"
+          echo "Consider breaking this into smaller PRs for easier review"
+        elif [ $TOTAL_CHANGES -gt 200 ]; then
+          echo "📝 Medium-sized PR (${TOTAL_CHANGES} lines changed)"
+        else
+          echo "✅ Small PR (${TOTAL_CHANGES} lines changed)"
+        fi

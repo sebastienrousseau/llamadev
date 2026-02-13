@@ -33,15 +33,15 @@ return {
     },
 
     -----------------------------------------------------------------------------
-    -- Treesitter Configuration
+    -- Treesitter Configuration (using pre-compiled parsers only)
     -----------------------------------------------------------------------------
     {
         "nvim-treesitter/nvim-treesitter",
         opts = function(_, opts)
+            opts.auto_install = false  -- Don't require tree-sitter CLI
             if type(opts.ensure_installed) == "table" then
                 vim.list_extend(opts.ensure_installed, {
-                    "python", "markdown", "json", "toml", "yaml", "bash", "vim",
-                    "regex"
+                    "python", "markdown", "lua", "vim", "vimdoc", "query"
                 })
             end
         end
@@ -84,7 +84,7 @@ return {
     {
         "neovim/nvim-lspconfig",
         dependencies = {
-            "williamboman/mason.nvim", "williamboman/mason-lspconfig.nvim"
+            "mason-org/mason.nvim", "mason-org/mason-lspconfig.nvim"
         },
         event = {"BufReadPre", "BufNewFile"},
         config = function()
@@ -121,7 +121,7 @@ return {
     -- Mason Tool Installation
     -----------------------------------------------------------------------------
     {
-        "williamboman/mason.nvim",
+        "mason-org/mason.nvim",
         opts = {
             ensure_installed = {
                 -- LSP servers
@@ -140,7 +140,7 @@ return {
         }
     },
     {
-        "williamboman/mason-lspconfig.nvim",
+        "mason-org/mason-lspconfig.nvim",
         opts = {
             ensure_installed = {"pylsp", "ruff-lsp"},
             automatic_installation = true

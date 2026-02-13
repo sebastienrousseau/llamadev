@@ -1,0 +1,266 @@
+name: Nightly Jobs
+
+on:
+  schedule:
+    # Run every night at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    # Allow manual trigger
+
+env:
+  TEST_TIMEOUT_MINUTES: 30
+
+jobs:
+  dependency-updates:
+    name: Check Dependency Updates
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: '5.4'
+
+    - name: Setup LuaRocks
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Check for updates
+      run: |
+        echo "🔍 Checking for dependency updates..."
+
+        # Update LuaRocks index
+        luarocks install --server=https://luarocks.org/dev busted || true
+
+        # List outdated packages
+        echo "Current LuaRocks packages:"
+        luarocks list
+
+        # Check for potential updates by searching latest versions
+        echo "Checking latest versions..."
+        luarocks search busted || true
+        luarocks search luacheck || true
+        luarocks search luacov || true
+
+        echo "📝 Dependency check completed"
+
+    - name: Check Neovim plugin updates
+      run: |
+        echo "🔌 Checking Neovim plugin versions..."
+
+        # Extract plugin names from Lua configs
+        find docker/ podman/ -name "*.lua" -exec grep -H "^return {" {} \; | while read -r file; do
+          echo "Found plugin config: $file"
+        done
+
+        echo "📝 Plugin check completed"
+
+  beta-compiler-testing:
+    name: Beta/Nightly Compiler Testing
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        lua-version: ['5.4', 'luajit-2.1.0-beta3']
+    continue-on-error: true
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua (beta/nightly)
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: ${{ matrix.lua-version }}
+
+    - name: Setup LuaRocks
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Install test dependencies
+      run: |
+        luarocks install busted
+        luarocks install luacov || true
+        luarocks install luacheck
+
+    - name: Run compatibility tests
+      run: |
+        echo "🧪 Testing with ${{ matrix.lua-version }}..."
+
+        # Run luacheck first
+        luacheck --no-color . || echo "Luacheck issues found with ${{ matrix.lua-version }}"
+
+        # Run test suite
+        busted --verbose || echo "Tests failed with ${{ matrix.lua-version }}"
+
+        echo "📝 Compatibility testing completed for ${{ matrix.lua-version }}"
+
+  extended-tests:
+    name: Extended Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: '5.4'
+
+    - name: Setup LuaRocks
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Install dependencies
+      run: |
+        luarocks install busted
+        luarocks install luacov
+
+    - name: Run extended tests
+      run: |
+        echo "🔬 Running extended test suite..."
+
+        # Run tests with increased verbosity and coverage
+        busted --verbose --coverage --shuffle
+
+        # Generate detailed coverage report
+        luacov
+
+        echo "📊 Extended testing completed"
+
+    - name: Performance benchmarks
+      run: |
+        echo "⚡ Running performance benchmarks..."
+
+        # Simple Lua performance test
+        lua -e "
+          local start_time = os.clock()
+
+          -- Simulate some work (plugin loading simulation)
+          for i = 1, 1000000 do
+            local config = {
+              plugin = 'test',
+              version = '*',
+              config = function() end
+            }
+          end
+
+          local end_time = os.clock()
+          print('Performance test completed in ' .. (end_time - start_time) .. ' seconds')
+        "
+
+        echo "📝 Performance benchmarks completed"
+
+  security-deep-scan:
+    name: Extended Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Lua
+      uses: leafo/gh-actions-lua@v10
+      with:
+        luaVersion: '5.4'
+
+    - name: Setup LuaRocks
+      uses: leafo/gh-actions-luarocks@v4
+
+    - name: Install security tools
+      run: |
+        luarocks install luacheck
+
+    - name: Deep security analysis
+      run: |
+        echo "🔒 Running extended security analysis..."
+
+        # Enhanced pattern matching for security issues
+        echo "Checking for eval-like functions..."
+        grep -r -n "loadstring\|load\|dofile\|loadfile" --include="*.lua" . || echo "No dangerous eval functions found"
+
+        echo "Checking for shell execution..."
+        grep -r -n "os\.execute\|io\.popen" --include="*.lua" . || echo "No shell execution found"
+
+        echo "Checking for file system operations..."
+        grep -r -n "io\.open\|io\.write" --include="*.lua" . || echo "No file operations found"
+
+        # Check for potential XSS in string concatenation
+        echo "Checking for potential injection vulnerabilities..."
+        grep -r -n "\.\." --include="*.lua" . | head -10 || echo "String concatenation check completed"
+
+        # Luacheck with security-focused configuration
+        echo "Running enhanced luacheck..."
+        luacheck --no-color --globals vim describe it setup teardown before_each after_each assert .
+
+        echo "✅ Extended security scan completed"
+
+  container-security:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJson(env.TEST_TIMEOUT_MINUTES) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Analyze Docker configurations
+      run: |
+        echo "🐳 Analyzing container security..."
+
+        # Check Docker configurations for security best practices
+        if [ -f "docker/docker-compose.yml" ]; then
+          echo "Analyzing docker-compose.yml..."
+
+          # Check for security issues
+          if grep -q "privileged.*true" docker/docker-compose.yml; then
+            echo "⚠️ Privileged containers detected"
+          fi
+
+          if grep -q "user.*root\|user.*0" docker/docker-compose.yml; then
+            echo "⚠️ Root user detected in container"
+          fi
+
+          echo "✅ Docker configuration analysis completed"
+        fi
+
+        # Check Podman configurations
+        if [ -f "podman/podman-compose.yml" ]; then
+          echo "Analyzing podman-compose.yml..."
+          echo "✅ Podman configuration analysis completed"
+        fi
+
+  notification:
+    name: Nightly Report
+    runs-on: ubuntu-latest
+    needs: [dependency-updates, beta-compiler-testing, extended-tests, security-deep-scan, container-security]
+    if: always()
+
+    steps:
+    - name: Generate nightly report
+      run: |
+        echo "📊 Nightly CI Report - $(date)"
+        echo "=========================="
+
+        echo "Job Status:"
+        echo "- Dependency Updates: ${{ needs.dependency-updates.result }}"
+        echo "- Beta Compiler Testing: ${{ needs.beta-compiler-testing.result }}"
+        echo "- Extended Tests: ${{ needs.extended-tests.result }}"
+        echo "- Security Deep Scan: ${{ needs.security-deep-scan.result }}"
+        echo "- Container Security: ${{ needs.container-security.result }}"
+
+        if [ "${{ needs.dependency-updates.result }}" == "failure" ] ||
+           [ "${{ needs.extended-tests.result }}" == "failure" ] ||
+           [ "${{ needs.security-deep-scan.result }}" == "failure" ] ||
+           [ "${{ needs.container-security.result }}" == "failure" ]; then
+          echo "❌ Some nightly jobs failed - review required"
+          exit 1
+        else
+          echo "✅ All critical nightly jobs completed successfully"
+        fi

@@ -20,7 +20,13 @@ services:
       PYTHON_VERSION: "${PYTHON_VERSION}"
       USERNAME: "${USERNAME}"
       USER_HOME: "${USER_HOME}"
+      # Ollama server binding address
       OLLAMA_HOST: "0.0.0.0:11434"
+      # LLM client configuration (from .env)
+      LLM_PROVIDER: "${LLM_PROVIDER:-ollama}"
+      LLM_MODEL: "${LLM_MODEL:-codellama:7b-code-q4_K_M}"
+      # LM Studio host (for external LM Studio server)
+      LMSTUDIO_HOST: "${LMSTUDIO_HOST:-http://host.docker.internal:1234}"
 
     user: "1000:1000"
     working_dir: "/home/llamadev/code"

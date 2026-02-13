@@ -1,11 +1,13 @@
-# LlamaDev (llamadev)
+# LlamaDev
 
 <!-- markdownlint-disable MD033 MD041 -->
 <img src="https://kura.pro/llamadev/images/logos/llamadev.svg"
 alt="LlamaDev logo" height="66" align="right" />
 <!-- markdownlint-enable MD033 MD041 -->
 
-An opinionated, secure, Debian-based container providing a complete Python development environment with NeoVim configuration and Ollama for local AI assistance. Engineered for safety, efficiency, and developer productivity. **This is not an official Python project** and is not affiliated with or supported by the Python Software Foundation.
+**A portable, AI-powered Python IDE that runs anywhere.**
+
+LlamaDev is a self-contained development environment combining NeoVim + Ollama in a lightweight container. Think VS Code with Copilot, but faster, more portable, and runs on anything from your laptop to a headless server.
 
 <!-- markdownlint-disable MD033 MD041 -->
 <center>
@@ -13,338 +15,391 @@ An opinionated, secure, Debian-based container providing a complete Python devel
 
 [![Made with Debian][debian-badge]][08] [![Container][container-badge]][03] [![Python][python-badge]][01] [![NeoVim][neovim-badge]][04] [![Ollama][ollama-badge]][09] [![Security][security-badge]][06] [![Build Status][build-badge]][07]
 
-• [Features](#key-features) • [Prerequisites](#prerequisites) • [Installation](#installation) • [Configuration](#configuration) • [Security](#security)
+• [Why LlamaDev](#why-llamadev) • [Quick Start](#quick-start) • [Features](#features) • [Configuration](#configuration) • [Security](#security)
 
 <!-- markdownlint-disable MD033 MD041 -->
 </center>
 <!-- markdownlint-enable MD033 MD041 -->
 
-## Disclaimer
+## Why LlamaDev?
 
-This is an opinionated development environment that reflects specific preferences for tooling, configuration, and workflow. It is:
+| Problem | LlamaDev Solution |
+|---------|-------------------|
+| VS Code/PyCharm are heavy and slow to start | NeoVim starts instantly, even in containers |
+| AI assistants require cloud APIs and subscriptions | Ollama runs locally - no API keys, no costs, full privacy |
+| Setting up a dev environment takes hours | Single `docker run` command, ready in seconds |
+| Can't run your IDE on a remote server | Works anywhere - laptops, servers, cloud VMs, CI/CD |
+| Different environments = different setups | Same container = identical experience everywhere |
 
-- Not an official Python project
-- Not affiliated with or supported by the Python Software Foundation or its contributors
-- Not intended to be a one-size-fits-all solution
-- Maintained independently and based on open-source projects
-- Provided as-is with no warranties (see [License](#license))
+### Key Benefits
 
-## Overview
+- **Instant startup** - NeoVim launches in milliseconds, not minutes
+- **Truly portable** - One container runs on macOS, Linux, Windows (WSL), ARM, x86
+- **Local AI assistance** - Ollama provides code completion and chat without internet
+- **Memory efficient** - Runs comfortably in 4GB RAM (vs 8GB+ for Electron-based IDEs)
+- **Server-friendly** - SSH into any machine, pull the container, start coding
+- **Self-contained** - Python, linting, formatting, testing, debugging - all included
 
-**LlamaDev** is a containerized Python development environment that prioritizes security, performance, and developer convenience. Built on Debian for reliability, it includes a pre-configured NeoVim setup with LazyVim, Python-specific tooling, intelligent code completion, Ollama for local AI assistance, and Git integration.
+## Quick Start
 
-## Key Features
+### Using Docker
 
-- **Security Standards**
-  - Multi-stage build with secret scanning
-  - OCI container verification and trust
-  - Base image digest verification
-  - Content trust enforcement
-  - SECCOMP profile implementation
-  - Enhanced security labels
-  - Regular vulnerability scanning
+```bash
+# Start LlamaDev with your project mounted
+docker run -it --rm \
+  -v "$(pwd):/home/llamadev/code" \
+  -p 11434:11434 \
+  ghcr.io/sebastienrousseau/llamadev:latest
 
-- **Secure by Design**
-  - Debian slim base with minimal attack surface
-  - Non-root user operation (UID 1000)
-  - Comprehensive security hardening
-  - PAM security implementation
-  - Container isolation and resource limits
-  - Core dump protection
-  - SUID/SGID binary removal
-  - System file immutability
+# Or build from source
+cd docker && docker-compose up --build -d
+docker exec -it llamadev bash
+```
 
-- **Python Development Tools**
-  - Python 3.13.2 with virtual environment
-  - UV package installer for faster dependency management
-  - Virtual environment configuration
-  - Optimized Python build
-  - Complete stdlib verification
-  - Path isolation and environment control
+### Using Podman
 
-- **Enhanced Development Experience**
-  - NeoVim with LazyVim configuration
-  - Ollama integration for local AI assistance
-  - Intelligent code completion
-  - Syntax highlighting
-  - Git integration
-  - Terminal integration
-  - Fuzzy finding
+```bash
+# Start LlamaDev with your project mounted
+podman run -it --rm \
+  -v "$(pwd):/home/llamadev/code" \
+  -p 11434:11434 \
+  ghcr.io/sebastienrousseau/llamadev:latest
 
-## Prerequisites
+# Or build from source
+cd podman && podman-compose up --build -d
+podman exec -it llamadev bash
+```
 
-- Docker 24.0+ or Podman 4.0+
-- Minimum 4GB RAM (8GB recommended)
-- At least 10GB free disk space
-- Git 2.40 or newer
-- Terminal with SSH support
+### First Steps Inside the Container
+
+```bash
+# Start NeoVim
+nvim .
+
+# Pull an AI model (one-time setup)
+ollama pull codellama
+
+# Start coding with AI assistance
+# Use <leader>ai for AI completions (default leader is space)
+```
+
+## Features
+
+### AI-Powered Development
+
+- **Ollama Integration** - Local LLM for code completion, explanation, and generation
+- **No API Keys Required** - Everything runs on your machine
+- **Privacy First** - Your code never leaves your system
+- **Multiple Models** - Use CodeLlama, Llama 3, Mistral, or any Ollama-compatible model
+
+### Modern Python IDE
+
+- **Python 3.13** with virtual environment and UV package manager
+- **LSP Support** - Full language server with go-to-definition, references, hover docs
+- **Intelligent Completion** - Context-aware suggestions via nvim-cmp
+- **Syntax Highlighting** - Treesitter-powered highlighting for Python, YAML, JSON, Markdown
+- **Integrated Testing** - Run pytest with `<leader>pt`, see results inline
+- **Debugging** - Full DAP support with breakpoints, stepping, variable inspection
+
+### NeoVim with LazyVim
+
+Pre-configured with sensible defaults:
+
+| Keymap | Action |
+|--------|--------|
+| `<leader>ff` | Find files (Telescope) |
+| `<leader>fg` | Live grep across project |
+| `<leader>pr` | Run current Python file |
+| `<leader>pt` | Run pytest |
+| `<leader>ca` | Code actions (LSP) |
+| `<leader>cf` | Format code |
+| `<leader>tt` | Toggle terminal |
+| `<F5>` | Start/continue debugging |
+
+### Developer Tools Included
+
+**Linting & Formatting:**
+- ruff (fast Python linter)
+- bandit (security linter)
+- codespell (spell checker)
+
+**Type Checking:**
+- mypy
+- pyright
+
+**Testing:**
+- pytest with coverage, async, mock, and hypothesis support
+- pytest-xdist for parallel testing
+
+**Security:**
+- pip-audit for dependency vulnerability scanning
+- Pre-commit hooks configured
 
 ## Installation
 
-1. **Clone the repository:**
+### Prerequisites
+
+- Docker 24.0+ or Podman 4.0+
+- 4GB RAM minimum (8GB recommended for larger AI models)
+- 10GB disk space
+
+### Option 1: Pull Pre-built Image
 
 ```bash
-git clone <https://github.com/sebastienrousseau/llamadev.git>
-cd llamadev
+docker pull ghcr.io/sebastienrousseau/llamadev:latest
 ```
 
-2. **Configure the environment (optional):**
-   Default values are provided, but you can customize in `.env`:
+### Option 2: Build from Source
 
 ```bash
-LANG="C.UTF-8"
-NAME="LlamaDev"
-OS="debian"
-PYTHON_VERSION="3.13.2"
-SHELL="/bin/bash"
-TZ="UTC"
-USER_HOME="/home/llamadev"
-USERNAME="llamadev"
-VERSION="0.0.1"
-```
-
-3. **Build and start the development environment:**
-
-*Using Docker:*
-
-```bash
-# Build and start with Docker Compose
+git clone https://github.com/sebastienrousseau/llamadev.git
+cd llamadev/docker  # or cd llamadev/podman
 docker-compose up --build -d
-
-# Or build and run manually
-docker build -t llamadev -f Dockerfile .
-docker run -it --security-opt=no-new-privileges:true \
-           --cap-drop=ALL --cap-add=NET_BIND_SERVICE \
-           -p 11434:11434 -p 8080:8080 \
-           -v "$(pwd):/home/llamadev/code" \
-           -v ollama_models:/home/llamadev/.ollama \
-           llamadev
 ```
 
-*Using Podman:*
+### Option 3: Development Setup
+
+For contributors working on LlamaDev itself:
 
 ```bash
-# Build and start with Podman Compose
-podman-compose up --build -d
-
-# Build and start with Podman
-podman build -t llamadev -f Containerfile .
-podman run -it --security-opt=no-new-privileges:true \
-           --cap-drop=ALL --cap-add=NET_BIND_SERVICE \
-           -p 11434:11434 -p 8080:8080 \
-           -v "$(pwd):/home/llamadev/code" \
-           -v ollama_models:/home/llamadev/.ollama \
-           llamadev
-```
-
-4. **Access the container:**
-
-*Using Docker:*
-
-```bash
-# New shell in running container
-docker exec -it llamadev bash
-
-# Reattach to stopped container
-docker start -ai llamadev
-```
-
-*Using Podman:*
-
-```bash
-# New shell in running container
-podman exec -it llamadev bash
-
-# Reattach to stopped container
-podman start -ai llamadev
+git clone https://github.com/sebastienrousseau/llamadev.git
+cd llamadev
+make install    # Install Lua dev dependencies
+make test       # Run test suite
+make ci-local   # Full CI pipeline
 ```
 
 ## Configuration
 
-### Docker commands
-
-```bash
-docker ps                   # List running containers
-docker stop llamadev       # Stop the container
-docker start llamadev      # Start the container
-docker rm llamadev         # Remove the container
-docker volume ls            # List volumes
-```
-
-### Podman equivalent
-
-```bash
-podman ps                   # List running containers
-podman stop llamadev       # Stop the container
-podman start llamadev      # Start the container
-podman rm llamadev         # Remove the container
-podman volume ls            # List volumes
-```
-
 ### Environment Variables
 
-The container uses pre-configured environment variables with sensible defaults:
+Create a `.env` file or set these variables:
 
 ```bash
-DOCKER_CONTENT_TRUST=1       # Enable Docker content trust
-SECCOMP_PROFILE=default      # Security computing mode profile
-PYTHONHOME=/opt/venv         # Python installation directory
-PYTHONPATH=/opt/venv/lib/python3.13/site-packages
-PYTHONDONTWRITEBYTECODE=1    # Prevent Python from writing pyc files
-PYTHONUNBUFFERED=1           # Prevent Python from buffering stdout/stderr
-NO_NEW_PRIVILEGES=true       # Ensure no process can gain additional privileges
+PYTHON_VERSION="3.13.2"    # Python version to use
+USERNAME="llamadev"         # Container username
+USER_HOME="/home/llamadev"  # Home directory
+OLLAMA_HOST="0.0.0.0:11434" # Ollama API endpoint
 ```
 
-### Docker Configuration
+### Mounting Your Code
 
-Example `docker-compose.yml`:
+```bash
+# Mount current directory
+docker run -it -v "$(pwd):/home/llamadev/code" llamadev
+
+# Mount specific project
+docker run -it -v "/path/to/project:/home/llamadev/code" llamadev
+
+# Persist Ollama models between sessions
+docker run -it \
+  -v "$(pwd):/home/llamadev/code" \
+  -v ollama_models:/home/llamadev/.ollama \
+  llamadev
+```
+
+### Exposing Ports
+
+```bash
+# Ollama API (for external tools)
+docker run -it -p 11434:11434 llamadev
+
+# Web development
+docker run -it -p 8080:8080 -p 11434:11434 llamadev
+```
+
+### Using docker-compose.yml
 
 ```yaml
 services:
   llamadev:
     image: llamadev
     container_name: llamadev
-
     build:
       context: .
-      args:
-        PYTHON_VERSION: "${PYTHON_VERSION}"
-        USERNAME: "${USERNAME}"
-        USER_HOME: "${USER_HOME}"
-
-    env_file:
-      - .env
-
     environment:
-      PATH: "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-      LANG: "C.UTF-8"
-      LC_ALL: "C.UTF-8"
-      PYTHON_VERSION: "${PYTHON_VERSION}"
-      USERNAME: "${USERNAME}"
-      USER_HOME: "${USER_HOME}"
       OLLAMA_HOST: "0.0.0.0:11434"
-
     user: "1000:1000"
     working_dir: "/home/llamadev/code"
     stdin_open: true
     tty: true
-    restart: unless-stopped
-
     ports:
       - "11434:11434"
-
+      - "8080:8080"
     volumes:
-      - llamadev:/home/llamadev/.ollama
-      - ./start.sh:/start.sh
-
-    command: ["/bin/bash", "-c", "source /opt/venv/bin/activate && exec /start.sh"]
+      - ./:/home/llamadev/code
+      - ollama_models:/home/llamadev/.ollama
 
 volumes:
-  llamadev: {}
+  ollama_models: {}
 ```
 
-### Podman Configuration
+## Using Ollama for AI Assistance
 
-Example `podman-compose.yml`:
+### Download a Model
 
-```yaml
-services:
-  llamadev:
-    image: llamadev
-    container_name: llamadev
-
-    build:
-      context: .
-      args:
-        PYTHON_VERSION: "${PYTHON_VERSION}"
-        USERNAME: "${USERNAME}"
-        USER_HOME: "${USER_HOME}"
-
-    env_file:
-      - .env
-
-    environment:
-      PATH: "/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-      LANG: "C.UTF-8"
-      LC_ALL: "C.UTF-8"
-      PYTHON_VERSION: "${PYTHON_VERSION}"
-      USERNAME: "${USERNAME}"
-      USER_HOME: "${USER_HOME}"
-      OLLAMA_HOST: "0.0.0.0:11434"
-
-    user: "1000:1000"
-    working_dir: "/home/llamadev/code"
-    stdin_open: true
-    tty: true
-    restart: unless-stopped
-
-    ports:
-      - "11434:11434"
-
-    volumes:
-      - llamadev:/home/llamadev/.ollama
-      - ./start.sh:/start.sh
-
-    command: ["/bin/bash", "-c", "source /opt/venv/bin/activate && exec /start.sh"]
-
-volumes:
-  llamadev: {}
+```bash
+# Inside the container
+ollama pull codellama      # Best for code completion
+ollama pull llama3         # General purpose
+ollama pull mistral        # Fast and capable
 ```
 
-## Development Workflow
+### Interactive Chat
 
-1. **Mount your code directory:**
+```bash
+ollama run codellama "Explain this Python function: $(cat myfile.py)"
+```
 
-   ```bash
-   # Docker
-   docker run -it -v "$(pwd):/home/llamadev/code" llamadev
+### In NeoVim
 
-   # Podman
-   podman run -it -v "$(pwd):/home/llamadev/code" llamadev
-   ```
-
-2. **For web development, expose ports:**
-
-   ```bash
-   # Docker
-   docker run -it -v "$(pwd):/home/llamadev/code" -p 8080:8080 llamadev
-
-   # Podman
-   podman run -it -v "$(pwd):/home/llamadev/code" -p 8080:8080 llamadev
-   ```
-
-3. **Using Ollama for local AI assistance:**
-
-   ```bash
-   # Inside the container
-   ollama pull llama3
-   ollama run llama3
-   ```
+The configuration includes AI integration. Use:
+- `<leader>ai` - Get AI suggestions for current context
+- `<leader>ae` - Explain selected code
+- `<leader>ar` - Refactor selected code
 
 ## Security
 
-The container implements multiple layers of security:
+LlamaDev is built with security as a priority:
 
-- Multi-stage build with secret scanning
-- Non-root user operation (UID 1000)
-- Minimal Debian slim base image
-- Content trust verification
-- SECCOMP profile implementation
-- Resource limitations
-- Regular security updates
-- System hardening
-- Core dump protection
-- SUID/SGID removal
-- File system restrictions
-- Process isolation
-- User access control
-- Enhanced healthchecks
-- No-new-privileges enforcement
-- Capability dropping (principle of least privilege)
+### Container Hardening
+
+- **Non-root user** - Runs as UID 1000, never as root
+- **Minimal base image** - Debian slim with only essential packages
+- **Capability dropping** - Only NET_BIND_SERVICE capability retained
+- **No new privileges** - Prevents privilege escalation
+- **SECCOMP profile** - System call filtering enabled
+- **Core dump protection** - Prevents sensitive data leakage
+
+### Build Security
+
+- **Secret scanning** - gitleaks runs during build to catch leaked credentials
+- **Dependency audit** - pip-audit checks for known vulnerabilities
+- **Multi-stage build** - Build tools don't ship in final image
+- **Base image verification** - Content trust enforced
+
+### Runtime Security
+
+- **Read-only where possible** - System directories are immutable
+- **Resource limits** - Memory and CPU constraints applied
+- **Network isolation** - Only necessary ports exposed
+- **SUID/SGID removal** - Dangerous permission bits stripped
+
+## Project Structure
+
+```
+llamadev/
+├── docker/                 # Docker configuration
+│   ├── Dockerfile          # Multi-stage secure build
+│   ├── docker-compose.yml  # Compose configuration
+│   ├── plugins/            # NeoVim plugin configs
+│   │   ├── coding.lua      # LSP, completion, treesitter
+│   │   ├── ui.lua          # Dashboard and UI
+│   │   ├── keymaps.lua     # Key bindings
+│   │   └── toggleterm.lua  # Terminal integration
+│   └── requirements.txt    # Python dependencies
+├── podman/                 # Podman configuration (mirrors docker/)
+├── tests/                  # Test suite
+│   └── unit/               # Unit tests for plugins
+├── Makefile                # Development commands
+└── README.md               # This file
+```
+
+## Development
+
+### Make Commands
+
+```bash
+make help          # Show all commands
+make install       # Install dev dependencies
+make lint          # Run luacheck
+make format        # Format with StyLua
+make test          # Run test suite
+make coverage      # Tests with coverage (100% required)
+make security      # Security audit
+make ci-local      # Full CI pipeline
+```
+
+### Running Tests
+
+```bash
+# All tests
+make test
+
+# With coverage
+make coverage
+
+# Specific test file
+busted tests/unit/keymaps_spec.lua
+```
+
+## Troubleshooting
+
+### Container won't start
+
+```bash
+# Check logs
+docker logs llamadev
+
+# Verify image built correctly
+docker images | grep llamadev
+```
+
+### Ollama not responding
+
+```bash
+# Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# Restart Ollama inside container
+ollama serve &
+```
+
+### NeoVim plugins not loading
+
+```bash
+# Inside container, sync plugins
+nvim --headless "+Lazy! sync" +qa
+
+# Check plugin status
+nvim "+Lazy"
+```
+
+### Permission issues with mounted volumes
+
+```bash
+# Ensure your user matches container user (UID 1000)
+id -u  # Should output 1000
+
+# Or run with your user ID
+docker run -it --user "$(id -u):$(id -g)" -v "$(pwd):/home/llamadev/code" llamadev
+```
+
+## Disclaimer
+
+This is an opinionated development environment. It is:
+
+- Not an official Python project
+- Not affiliated with or supported by the Python Software Foundation
+- Maintained independently based on open-source projects
+- Provided as-is under the MIT License
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch
+3. Run `make ci-local` to verify changes
+4. Submit a pull request
+
+---
+
+**LlamaDev** - Your portable Python IDE. Code anywhere.
 
 [debian-badge]: https://img.shields.io/badge/Debian-A81D33?style=for-the-badge&logo=debian&logoColor=white
 [container-badge]: https://img.shields.io/badge/Container-2496ED?style=for-the-badge&logo=docker&logoColor=white

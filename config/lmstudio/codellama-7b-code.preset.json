@@ -1,0 +1,51 @@
+{
+  "name": "CodeLlama 7B Code - Optimized",
+  "description": "Optimized preset for CodeLlama 7B Code Q4_K_M for coding tasks",
+  "version": "1.0.0",
+  "author": "LlamaDev",
+
+  "inferenceParams": {
+    "temperature": 0.15,
+    "topP": 0.85,
+    "topK": 30,
+    "minP": 0.05,
+    "repeatPenalty": 1.15,
+    "repeatPenaltyTokens": 128,
+    "presencePenalty": 0.1,
+    "frequencyPenalty": 0.1,
+    "maxTokens": 2048,
+    "stopStrings": [
+      "<|endoftext|>",
+      "</s>",
+      "<|end|>",
+      "```\n\n",
+      "\n\n\n",
+      "Human:",
+      "User:"
+    ]
+  },
+
+  "contextParams": {
+    "contextLength": 4096,
+    "batchSize": 512,
+    "threads": 8,
+    "gpuLayers": -1,
+    "ropeFrequencyBase": 10000,
+    "ropeFrequencyScale": 1.0
+  },
+
+  "samplingParams": {
+    "mirostat": 0,
+    "mirostatTau": 5.0,
+    "mirostatEta": 0.1,
+    "seed": -1
+  },
+
+  "systemPrompt": "You are CodeLlama, an expert AI programming assistant.\n\nCAPABILITIES:\n- Write clean, efficient, production-ready code\n- Debug, analyze, and fix code issues\n- Explain complex algorithms and code patterns\n- Generate comprehensive tests\n- Refactor and optimize existing code\n\nGUIDELINES:\n1. Be concise - provide working code with minimal explanation unless asked\n2. Follow language best practices (PEP 8 for Python, etc.)\n3. Use type hints for Python functions\n4. Include error handling where appropriate\n5. Prefer readability over cleverness\n\nOUTPUT FORMAT:\n- Use markdown code blocks with language specifier\n- For multi-file changes, clearly label each file\n- When fixing bugs, briefly explain what was wrong",
+
+  "promptTemplate": {
+    "type": "custom",
+    "template": "<s>System: {{system}}</s>\n<s>User: {{prompt}}</s>\n<s>Assistant: ",
+    "stopSequence": "</s>"
+  }
+}

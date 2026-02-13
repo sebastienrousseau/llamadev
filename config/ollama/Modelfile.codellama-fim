@@ -1,0 +1,71 @@
+# Ollama Modelfile: CodeLlama 7B FIM (Fill-in-Middle) Variant
+# ============================================================================
+#
+# Optimized for code completion (autocomplete) tasks using FIM format.
+# This variant is specifically tuned for inline code completion.
+#
+# Installation:
+#   ollama create codellama-fim -f Modelfile.codellama-fim
+#
+# Usage in Neovim:
+#   Configure cmp-ai or similar completion plugin to use this model
+# ============================================================================
+
+FROM codellama:7b-code-q4_K_M
+
+# ============================================================================
+# FIM-OPTIMIZED PARAMETERS
+# ============================================================================
+
+# Very low temperature for deterministic completions
+PARAMETER temperature 0.1
+
+# Tight nucleus sampling for focused output
+PARAMETER top_p 0.8
+
+# Limited token consideration
+PARAMETER top_k 20
+
+# Strong repeat penalty (completions shouldn't repeat)
+PARAMETER repeat_penalty 1.2
+PARAMETER repeat_last_n 64
+
+# ============================================================================
+# CONTEXT & GENERATION
+# ============================================================================
+
+# Smaller context for faster completions
+PARAMETER num_ctx 2048
+
+# Short predictions for completions (1-2 lines typically)
+PARAMETER num_predict 256
+
+# Faster batch processing
+PARAMETER num_batch 256
+
+# ============================================================================
+# FIM STOP SEQUENCES
+# ============================================================================
+
+# Stop at natural code boundaries
+PARAMETER stop "<|endoftext|>"
+PARAMETER stop "</s>"
+PARAMETER stop " <MID>"
+PARAMETER stop "<PRE>"
+PARAMETER stop "<SUF>"
+PARAMETER stop "\n\n"
+PARAMETER stop "\ndef "
+PARAMETER stop "\nclass "
+PARAMETER stop "\nimport "
+PARAMETER stop "\nfrom "
+
+# ============================================================================
+# FIM TEMPLATE
+# ============================================================================
+
+# CodeLlama FIM format: <PRE> prefix <SUF> suffix <MID>
+# The model will generate the middle part
+TEMPLATE """<PRE> {{ .Prompt }} <SUF>{{ if .Suffix }}{{ .Suffix }}{{ end }} <MID>"""
+
+# Minimal system prompt for completion
+SYSTEM """Complete the code. Output only the missing code, nothing else."""
