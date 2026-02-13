@@ -1,0 +1,129 @@
+# Ollama Modelfile: CodeLlama 7B Code Q4_K_M (Optimized)
+# ============================================================================
+#
+# This Modelfile creates an optimized variant of CodeLlama for coding tasks.
+#
+# Installation:
+#   cd /path/to/llamadev/config/ollama
+#   ollama create codellama-dev -f Modelfile.codellama-optimized
+#
+# Usage:
+#   ollama run codellama-dev
+#
+# Or set LLM_MODEL=codellama-dev in your .env file
+# ============================================================================
+
+FROM codellama:7b-code-q4_K_M
+
+# ============================================================================
+# INFERENCE PARAMETERS
+# ============================================================================
+
+# Temperature: Lower = more deterministic/focused (good for code)
+# Range: 0.0-2.0, Default: 0.8
+PARAMETER temperature 0.15
+
+# Top-P (nucleus sampling): Cumulative probability threshold
+# Lower = more focused, Range: 0.0-1.0, Default: 0.9
+PARAMETER top_p 0.85
+
+# Top-K: Number of top tokens to consider
+# Lower = more focused, Range: 1-100, Default: 40
+PARAMETER top_k 30
+
+# Repeat penalty: Prevents repetitive output
+# Higher = less repetition, Range: 1.0-2.0, Default: 1.1
+PARAMETER repeat_penalty 1.15
+
+# Repeat penalty window (tokens to look back)
+PARAMETER repeat_last_n 128
+
+# Presence penalty: Penalizes tokens that appear in the output
+PARAMETER presence_penalty 0.1
+
+# Frequency penalty: Penalizes tokens based on frequency
+PARAMETER frequency_penalty 0.1
+
+# ============================================================================
+# CONTEXT & GENERATION LIMITS
+# ============================================================================
+
+# Context window size (tokens)
+# CodeLlama supports up to 16K, but 4K is efficient for most tasks
+PARAMETER num_ctx 4096
+
+# Maximum tokens to generate per response
+PARAMETER num_predict 2048
+
+# Number of tokens to keep from initial prompt
+PARAMETER num_keep 256
+
+# ============================================================================
+# PERFORMANCE PARAMETERS
+# ============================================================================
+
+# Batch size for prompt processing
+PARAMETER num_batch 512
+
+# Number of threads for CPU inference
+PARAMETER num_thread 8
+
+# Number of GPU layers to offload (-1 = all)
+PARAMETER num_gpu -1
+
+# ============================================================================
+# STOPPING CRITERIA
+# ============================================================================
+
+# Stop sequences for clean output termination
+PARAMETER stop "<|endoftext|>"
+PARAMETER stop "</s>"
+PARAMETER stop "<|end|>"
+PARAMETER stop "```\n\n"
+PARAMETER stop "\n\n\n"
+PARAMETER stop "Human:"
+PARAMETER stop "User:"
+
+# ============================================================================
+# SYSTEM PROMPT
+# ============================================================================
+
+SYSTEM """You are CodeLlama, an expert AI programming assistant created by Meta.
+
+CAPABILITIES:
+- Write clean, efficient, production-ready code
+- Debug, analyze, and fix code issues
+- Explain complex algorithms and code patterns
+- Generate comprehensive tests (pytest, unittest)
+- Refactor and optimize existing code
+- Write documentation and docstrings
+
+GUIDELINES:
+1. Be concise - provide working code with minimal explanation unless asked
+2. Follow language best practices (PEP 8 for Python, etc.)
+3. Use type hints for Python functions
+4. Include error handling where appropriate
+5. Prefer readability and maintainability over cleverness
+6. Add brief inline comments only for complex logic
+
+OUTPUT FORMAT:
+- Use markdown code blocks with language specifier
+- For multi-file changes, clearly label each file
+- When fixing bugs, briefly explain what was wrong
+
+CONSTRAINTS:
+- Never execute code or access external systems
+- If unsure, ask for clarification rather than guessing
+- Acknowledge limitations when applicable"""
+
+# ============================================================================
+# TEMPLATE (for chat formatting)
+# ============================================================================
+
+TEMPLATE """{{- if .System }}
+<s>System: {{ .System }}</s>
+{{- end }}
+{{- if .Prompt }}
+<s>User: {{ .Prompt }}</s>
+{{- end }}
+<s>Assistant: {{ .Response }}</s>"""

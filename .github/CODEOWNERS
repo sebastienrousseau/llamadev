@@ -1,0 +1,42 @@
+# CODEOWNERS file for llamadev project
+# This file defines who is automatically assigned for review when specific files are changed
+
+# Global ownership - fallback for any files not specifically mentioned
+* @owner
+
+# Lua source code
+*.lua @owner
+docker/plugins/*.lua @owner
+podman/plugins/*.lua @owner
+
+# Test files require careful review
+tests/ @owner
+*_spec.lua @owner
+**/*_test.lua @owner
+
+# CI/CD configuration files - critical infrastructure
+.github/workflows/ @owner
+.github/ @owner
+Makefile @owner
+*.toml @owner
+.luacheckrc @owner
+
+# Configuration files
+docker/ @owner
+podman/ @owner
+docker-compose.yml @owner
+docker-compose.yaml @owner
+podman-compose.yml @owner
+podman-compose.yaml @owner
+
+# Documentation
+README.md @owner
+*.md @owner
+docs/ @owner
+
+# Security-sensitive files
+.github/workflows/nightly.yml @owner @security-team
+.github/workflows/security*.yml @owner @security-team
+
+# Note: Replace @owner and @security-team with actual GitHub usernames or team names
+# Example: @johndoe or @myorg/security-team

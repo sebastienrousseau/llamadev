@@ -1,0 +1,40 @@
+# StyLua configuration for llamadev project
+# Enforces consistent code formatting across the project
+
+# Line endings configuration
+line_endings = "Unix"
+
+# Indentation settings
+indent_type = "Spaces"
+indent_width = 4
+
+# Line width limit
+column_width = 120
+
+# Quote style preference
+quote_style = "AutoPreferDouble"
+
+# Function call parentheses
+call_parentheses = "Always"
+
+# Statement collapsing
+collapse_simple_statement = "Never"
+
+# Trailing comma behavior
+trailing_comma = "MultiLine"
+
+# Sort requires
+sort_requires = {
+    enabled = true
+}
+
+# Include/exclude patterns
+[include]
+patterns = ["**/*.lua"]
+
+[exclude]
+patterns = [
+    ".luarocks/**",
+    "lua_modules/**",
+    "**/node_modules/**"
+]
