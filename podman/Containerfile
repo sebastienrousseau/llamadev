@@ -161,7 +161,7 @@ ARG OLLAMA_VERSION="0.1.29"
 ARG USERNAME="llamadev"
 ARG USER_HOME="/home/${USERNAME}"
 ARG DEBIAN_FRONTEND="noninteractive"
-ARG NEOVIM_VERSION="0.10.4"
+ARG NEOVIM_VERSION="0.11.2"
 ARG BUILD_DATE=$(date -u +"%Y-%m-%d")
 
 # Container metadata labels
@@ -239,30 +239,18 @@ ENV VIRTUAL_ENV=/opt/venv \
 # Verify Python installation
 RUN which python3 && /opt/venv/bin/python3 --version || { echo "Python installation failed"; exit 1; }
 
-# Install Neovim from source with cryptographic verification
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ninja-build gettext cmake unzip \
-    build-essential libtool-bin libluajit-5.1-dev \
-    libunibilium-dev libmsgpack-dev libtermkey-dev \
-    libvterm-dev libutf8proc-dev \
-    && cd /tmp \
-    && curl -Lo neovim.tar.gz "https://github.com/neovim/neovim/archive/refs/tags/v${NEOVIM_VERSION}.tar.gz" \
-    && echo "Verifying downloaded Neovim tarball..." \
-    && tar xzf neovim.tar.gz \
-    && cd neovim-${NEOVIM_VERSION} \
-    && echo "Building Neovim..." \
-    && make CMAKE_BUILD_TYPE=Release \
-    && make install \
-    && cd / \
-    && echo "Cleaning up Neovim build files..." \
-    && rm -rf /tmp/neovim* \
-    && apt-get remove -y ninja-build gettext cmake unzip build-essential \
-    libtool-bin libluajit-5.1-dev libunibilium-dev libmsgpack-dev \
-    libtermkey-dev libvterm-dev libutf8proc-dev \
-    && apt-get autoremove -y \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/* \
-    && /usr/local/bin/nvim --version || { echo "Neovim installation failed"; exit 1; }
+# Install Neovim from pre-built release (FAST - no compilation needed)
+RUN ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+        "x86_64") NVIM_ARCH="linux-x86_64" ;; \
+        "aarch64"|"arm64") NVIM_ARCH="linux-arm64" ;; \
+        *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
+    esac && \
+    curl -Lo /tmp/nvim.tar.gz "https://github.com/neovim/neovim/releases/download/v${NEOVIM_VERSION}/nvim-${NVIM_ARCH}.tar.gz" && \
+    tar xzf /tmp/nvim.tar.gz -C /opt && \
+    ln -sf /opt/nvim-${NVIM_ARCH}/bin/nvim /usr/local/bin/nvim && \
+    rm -f /tmp/nvim.tar.gz && \
+    /usr/local/bin/nvim --version || { echo "Neovim installation failed"; exit 1; }
 
 # Install Ollama with architecture detection
 RUN ARCH="$(uname -m)" && \

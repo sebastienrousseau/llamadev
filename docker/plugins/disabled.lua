@@ -1,25 +1,20 @@
 -- disabled.lua
--- Disable plugins not needed for Python development
+-- Disable plugins not needed for our AI-first Python IDE setup
 return {
-    -- disable mason.nvim
-    { "williamboman/mason.nvim", enabled = false },
-    { "williamboman/mason-lspconfig.nvim", enabled = false },
+    -- Disable mason.nvim (we manage tools via container)
+    { "mason-org/mason.nvim", enabled = false },
+    { "mason-org/mason-lspconfig.nvim", enabled = false },
 
-    -- Disable mini.pairs since we use nvim-autopairs
-    {"echasnovski/mini.pairs", enabled = false},
+    -- Disable mini plugins we don't use (using dedicated alternatives)
+    { "nvim-mini/mini.pairs", enabled = false },
+    { "nvim-mini/mini.surround", enabled = false },
 
-    -- Disable mini.surround since we use nvim-surround
-    {"echasnovski/mini.surround", enabled = false},
+    -- Disable neodev (not needed for our Python-focused setup)
+    { "folke/neodev.nvim", enabled = false },
 
-    -- Disable language-specific plugins you don't need
-    {"folke/neodev.nvim", enabled = false},
+    -- Disable venv-selector (we use container-managed venv)
+    { "linux-cultist/venv-selector.nvim", enabled = false },
 
-    -- If you don't need persistent terminal
-    {"akinsho/toggleterm.nvim", enabled = false},
-
-    -- If you don't need advanced indentation guides
-    {"lukas-reineke/indent-blankline.nvim", enabled = false},
-
-    -- disable venvselect
-    { "linux-cultist/venv-selector.nvim", enabled = false }
+    -- Disable persistence (we use container state)
+    { "folke/persistence.nvim", enabled = false },
 }
