@@ -47,10 +47,11 @@ local function get_chat_model()
     end
     local provider = get_provider()
     if provider == "lmstudio" then
-        return "codellama-7b-code-q4_K_M"
+        return "qwen2.5-coder"
     end
-    -- Use optimized model if available, fallback to base
-    return "codellama-dev"
+    -- Use qwen2.5-coder for chat (better at instructions)
+    -- Use codellama-fim for FIM completion
+    return "qwen2.5-coder"
 end
 
 local function get_fim_model()
