@@ -5,8 +5,9 @@
 `llamadev` is a member of the [`langdev`](https://github.com/sebastienrousseau/langdev)
 suite: a complete, batteries-included development container you can **spin up
 and throw away in seconds**, on any machine with Docker or Podman. It pairs a
-local **Ollama** LLM runtime with a hardened **Python** toolchain and a
-pre-configured **Neovim** editor.
+local **Ollama** LLM runtime with a hardened **Python** toolchain, inside the
+developer's **own chezmoi-managed dotfiles** (shell, editor, **tmux**), applied
+at build time.
 
 One **OCI `Containerfile`** builds with both engines and both architectures
 (`linux/amd64`, `linux/arm64`). There is no longer a separate `docker/` and
@@ -23,19 +24,30 @@ consolidated into a single, pinned, checksum-verified image.
   `pip-audit`, `pytest` (+ `asyncio`/`cov`/`mock`/`xdist`), `hypothesis`,
   `debugpy`, `pre-commit`, `rich`, `typer`, `structlog`, `codespell`,
   `mdformat`.
-- **Neovim** with LazyVim, plugins baked in at build time (no network on
-  first launch), Python LSP wired to **basedpyright + ruff server** (Mason is
-  intentionally disabled).
+- **Your own dotfiles** — at build time the image clones your chezmoi-managed
+  dotfiles repo and runs `chezmoi apply`, so the container has the *real*
+  bashrc, aliases, tmux config, and Neovim setup (latest by default; pin with
+  the `DOTFILES_REF` build arg for reproducible builds).
+- **tmux, loaded by default** — the entrypoint attaches to (or creates) a
+  persistent `langdev` tmux session for interactive shells (opt out with
+  `LANGDEV_NO_TMUX=1`).
+- **Neovim** — your dotfiles' config is authoritative; llamadev drops in a
+  single `nvim/plugins.local/lang.lua` (auto-imported via the config's
+  `plugins.local` convention) that wires the Python LSP to
+  **basedpyright + ruff server**. Plugins are baked headless at build time, so
+  there is no network on first launch.
 
 ## Quick start
 
 ```bash
 # Docker or Podman — the Makefile auto-detects which you have.
-make up            # build + drop into an interactive dev shell
+make up            # build + drop into an interactive tmux dev shell
 ```
 
-Inside the container, Ollama is started automatically on `127.0.0.1:11434`.
-Pull the default model (first run only; it is multi-GB):
+`make up` drops you into a persistent `langdev` **tmux** session running your
+own shell/editor config. Inside the container, the entrypoint's runtime hook
+starts Ollama automatically on `127.0.0.1:11434` **before** the tmux/shell is
+exec'd. Pull the default model (first run only; it is multi-GB):
 
 ```bash
 ollama pull qwen2.5-coder

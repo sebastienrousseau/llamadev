@@ -1,10 +1,16 @@
 -- llamadev — Python language wiring (LSP + Treesitter).
 -- SPDX-License-Identifier: MIT
 --
+-- This is the ONE language drop-in langdev adds to the user's own
+-- chezmoi-managed Neovim config. It is copied to
+-- ~/.config/nvim/lua/plugins.local/lang.lua and auto-imported via the
+-- dotfiles' `plugins.local` convention.
+--
 -- Language servers are installed at BUILD time by the Containerfile's
 -- toolchain stage (into /opt/venv) and configured directly here via
--- nvim-lspconfig. Mason is disabled (see common/nvim/plugins/disabled.lua),
--- so no network is needed on first launch and the set is reproducible.
+-- nvim-lspconfig, so no network is needed on first launch and the set is
+-- reproducible. (Mason, if present in the dotfiles' config, is not relied
+-- upon: the binaries below already live on PATH inside the image.)
 --
 --   * basedpyright  -> type checking + completion/hover/go-to (Pyright fork)
 --   * ruff (server) -> linting + formatting via `ruff server` (NOT ruff-lsp)

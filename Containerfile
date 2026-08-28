@@ -6,16 +6,30 @@
 # non-root, all-caps-dropped, read-only-rootfs friendly, multi-arch
 # (linux/amd64 + linux/arm64), every input pinned and checksum-verified.
 #
+# The developer environment (shell, editor, tmux) IS the USER'S OWN
+# chezmoi-managed dotfiles, cloned + applied at build time (latest by
+# default; pin with DOTFILES_REF). langdev provides only the hardened base
+# + toolchain + the single nvim/plugins.local/lang.lua LSP drop-in.
+#
 # Stages:
 #   toolchain  — Python dev toolchain (uv + hash-locked venv) + Ollama binary
-#   nvim-build — bakes Neovim + the pinned plugin set (no network at runtime)
+#   env-build  — clone + chezmoi-apply the dotfiles, bake the nvim plugin set
 #   base       — the shared langdev runtime (COMMON — kept in sync)
-#   final      — copies the toolchain artifacts onto the base
+#   final      — copies the toolchain artifacts + Ollama onto the base
 #
 # Base is pinned BY DIGEST. Update via `make bump-base`.
 ARG ALPINE_VERSION=3.22
 # renovate: datasource=docker depName=alpine
 ARG ALPINE_DIGEST=sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+
+ARG USERNAME=dev
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+# Dotfiles source — "always the latest" by default; pin a tag/commit for
+# reproducible builds.
+ARG DOTFILES_REPO=https://github.com/sebastienrousseau/dotfiles.git
+ARG DOTFILES_REF=main
 
 ###############################################################################
 # Stage: toolchain  (LANGUAGE-SPECIFIC)
@@ -87,78 +101,74 @@ RUN set -eux; \
     /opt/ollama/bin/ollama --version >/dev/null 2>&1 || true
 
 ###############################################################################
-# Stage: nvim-build  (COMMON — bakes the editor + plugins into the image)
+# Stage: env-build  (COMMON — apply the user's dotfiles + bake nvim plugins)
 ###############################################################################
-FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS nvim-build
-ARG USERNAME=dev
-ARG USER_UID=1000
-ARG USER_GID=1000
+FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS env-build
+ARG USERNAME USER_UID USER_GID DOTFILES_REPO DOTFILES_REF
+# Tools needed to clone+apply dotfiles and compile/install nvim plugins.
 # hadolint ignore=DL3018
 RUN apk add --no-cache \
-      bash ca-certificates curl git \
-      neovim ripgrep fd \
+      bash ca-certificates chezmoi curl git \
+      neovim ripgrep fd fzf bat \
       build-base cmake
-# LazyVim starter pinned to a commit (reproducible); overridable at build.
-ARG LAZYVIM_STARTER_REF=c31e5cc9f77b16d20a693c30f28fdf907f1caf95
-ENV XDG_CONFIG_HOME=/root/.config \
-    XDG_DATA_HOME=/root/.local/share \
-    XDG_STATE_HOME=/root/.local/state \
-    XDG_CACHE_HOME=/root/.cache
-RUN git clone --filter=blob:none https://github.com/LazyVim/starter /root/.config/nvim \
- && git -C /root/.config/nvim checkout "${LAZYVIM_STARTER_REF}" \
- && rm -rf /root/.config/nvim/.git
-# Common + language plugin specs.
-COPY common/nvim/plugins/ /root/.config/nvim/lua/plugins/
-COPY nvim/plugins/ /root/.config/nvim/lua/plugins/
-# Reproducible plugin set: restore from committed lockfile, then sync.
-COPY nvim/lazy-lock.json /root/.config/nvim/lazy-lock.json
+RUN addgroup -g "${USER_GID}" "${USERNAME}" \
+ && adduser -D -u "${USER_UID}" -G "${USERNAME}" -s /bin/bash "${USERNAME}"
+COPY --chown=${USER_UID}:${USER_GID} common/bootstrap-dotfiles.sh /usr/local/bin/langdev-bootstrap-dotfiles
+RUN chmod 0755 /usr/local/bin/langdev-bootstrap-dotfiles
+USER ${USERNAME}
+ENV HOME=/home/${USERNAME}
+# 1) Clone + chezmoi-apply the user's dotfiles (brings bashrc, tmux, nvim…).
+RUN DOTFILES_REPO="${DOTFILES_REPO}" DOTFILES_REF="${DOTFILES_REF}" \
+      langdev-bootstrap-dotfiles
+# 2) Drop the language LSP spec into the dotfiles' nvim (auto-imported via
+#    the config's `plugins.local`), then bake the full plugin set headless
+#    so the runtime needs no network on first launch.
+COPY --chown=${USER_UID}:${USER_GID} nvim/plugins.local/ /home/${USERNAME}/.config/nvim/lua/plugins.local/
 RUN nvim --headless "+Lazy! restore" +qa 2>&1 | tail -n 5 || true \
- && nvim --headless "+TSUpdateSync" +qa 2>&1 | tail -n 5 || true
+ && nvim --headless "+Lazy! sync"    +qa 2>&1 | tail -n 5 || true \
+ && nvim --headless "+TSUpdateSync"  +qa 2>&1 | tail -n 5 || true
 
 ###############################################################################
 #                              COMMON BASE
 ###############################################################################
 FROM alpine:${ALPINE_VERSION}@${ALPINE_DIGEST} AS base
-
-ARG USERNAME=dev
-ARG USER_UID=1000
-ARG USER_GID=1000
+ARG USERNAME USER_UID USER_GID
 
 LABEL org.opencontainers.image.title="llamadev" \
       org.opencontainers.image.description="Ollama LLM + Python dev environment on the langdev core" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.vendor="Sebastien Rousseau"
 
-# Minimal, pinned runtime. `tini` is the init (compose sets init:true, but
-# shipping it keeps `docker run` correct too).
+# Runtime deps: editor, multiplexer (tmux — available by default), and the
+# CLI tools the dotfiles expect. `tini` is PID 1 (compose sets init:true).
 # hadolint ignore=DL3018
 RUN apk add --no-cache \
       bash \
+      bat \
       ca-certificates \
+      chezmoi \
       curl \
+      fd \
+      fzf \
       git \
       less \
       neovim \
       ripgrep \
-      fd \
       tini \
+      tmux \
       tzdata \
+      zoxide \
  && update-ca-certificates
 
-# Non-root user with a real home.
 RUN addgroup -g "${USER_GID}" "${USERNAME}" \
  && adduser -D -u "${USER_UID}" -G "${USERNAME}" -s /bin/bash "${USERNAME}"
 
-# Portable dotfiles.
-COPY --chown=${USER_UID}:${USER_GID} common/dotfiles/bashrc        /home/${USERNAME}/.bashrc
-COPY --chown=${USER_UID}:${USER_GID} common/dotfiles/bash_profile  /home/${USERNAME}/.bash_profile
-COPY --chown=${USER_UID}:${USER_GID} common/dotfiles/bash_aliases  /home/${USERNAME}/.bash_aliases
+# Bring in the fully-populated home from env-build: the applied dotfiles
+# (~/.bashrc, ~/.config/tmux, ~/.config/nvim, ~/.config/shell/*, …) plus the
+# baked nvim plugin set. One COPY captures everything chezmoi wrote.
+COPY --from=env-build --chown=${USER_UID}:${USER_GID} /home/${USERNAME} /home/${USERNAME}
 
-# Editor + baked-in plugins from the nvim-build stage.
-COPY --from=nvim-build --chown=${USER_UID}:${USER_GID} /root/.config/nvim /home/${USERNAME}/.config/nvim
-COPY --from=nvim-build --chown=${USER_UID}:${USER_GID} /root/.local/share/nvim /home/${USERNAME}/.local/share/nvim
-
-# Entrypoint.
+# Entrypoint (tmux-loading, strict-mode).
 COPY common/entrypoint.sh /usr/local/bin/langdev-entrypoint
 RUN chmod 0755 /usr/local/bin/langdev-entrypoint \
  && mkdir -p /usr/local/lib/langdev
@@ -211,7 +221,15 @@ RUN apk add --no-cache \
 COPY --from=toolchain --chown=${USER_UID}:${USER_GID} /opt/venv   /opt/venv
 COPY --from=toolchain --chown=${USER_UID}:${USER_GID} /opt/ollama /opt/ollama
 
-# Runtime hook: the common entrypoint sources this to start Ollama on loopback.
+# Language PATH/env for LOGIN shells (sourced via /etc/profile → profile.d).
+# Root-owned, 0644. Kept OUT of the user's chezmoi dotfiles so those stay
+# pristine and langdev-agnostic. This is IN ADDITION to the container ENV
+# below (needed by the non-login entrypoint/runtime-hook) and the compose env.
+COPY dotfiles.d/llamadev.sh /etc/profile.d/llamadev.sh
+RUN chmod 0644 /etc/profile.d/llamadev.sh
+
+# Runtime hook: the common entrypoint SOURCES this (before it execs tmux/shell)
+# to start Ollama on loopback. It stays installed under /usr/local/lib/langdev.
 COPY runtime-hook.sh /usr/local/lib/langdev/runtime-hook.sh
 RUN chmod 0755 /usr/local/lib/langdev/runtime-hook.sh \
  # Model store lives on a named volume at runtime (read-only rootfs); create
@@ -223,6 +241,8 @@ USER ${USERNAME}
 WORKDIR /work
 
 # Toolchain on PATH; loopback-only, unauthenticated Ollama bound to localhost.
+# PATH is set here (not only in profile.d) so the non-login entrypoint and its
+# runtime-hook can find `ollama` before the login shell/tmux is exec'd.
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:/opt/ollama/bin:/home/dev/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     OLLAMA_HOST=127.0.0.1:11434 \
