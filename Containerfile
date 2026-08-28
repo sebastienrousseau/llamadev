@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.9
 # llamadev Containerfile — OCI, builds with Docker AND Podman.
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0 OR MIT
 #
 # An Ollama LLM development environment built on the shared langdev core:
 # non-root, all-caps-dropped, read-only-rootfs friendly, multi-arch
@@ -136,7 +136,7 @@ ARG USERNAME USER_UID USER_GID
 
 LABEL org.opencontainers.image.title="llamadev" \
       org.opencontainers.image.description="Ollama LLM + Python dev environment on the langdev core" \
-      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.licenses="Apache-2.0 OR MIT" \
       org.opencontainers.image.vendor="Sebastien Rousseau"
 
 # Runtime deps: editor, multiplexer (tmux — available by default), and the

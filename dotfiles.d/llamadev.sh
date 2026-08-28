@@ -1,5 +1,5 @@
 # llamadev — language PATH/env for login shells.
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0 OR MIT
 #
 # Installed to /etc/profile.d/llamadev.sh (root-owned, 0644) by the
 # Containerfile's final stage, so LOGIN shells (the tmux/bash session the

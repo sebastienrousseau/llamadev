@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # llamadev runtime hook — start a loopback-only Ollama server.
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0 OR MIT
 #
 # This file is SOURCED by the langdev common entrypoint (which runs under
 # `set -euo pipefail`). It therefore must NEVER let a failure escape and

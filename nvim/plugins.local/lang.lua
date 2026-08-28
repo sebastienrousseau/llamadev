@@ -1,5 +1,5 @@
 -- llamadev — Python language wiring (LSP + Treesitter).
--- SPDX-License-Identifier: MIT
+-- SPDX-License-Identifier: Apache-2.0 OR MIT
 --
 -- This is the ONE language drop-in langdev adds to the user's own
 -- chezmoi-managed Neovim config. It is copied to
