@@ -1,0 +1,36 @@
+# llamadev Python dev toolchain (top-level; transitive deps + hashes are
+# resolved into requirements.lock by `uv pip compile --generate-hashes`).
+
+# Linters / formatters / type checkers (ruff provides `ruff server` LSP)
+ruff
+mypy
+basedpyright
+bandit
+codespell
+
+# Security auditing
+pip-audit
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+pytest-xdist
+hypothesis
+
+# Debugging + git hooks
+debugpy
+pre-commit
+
+# CLI / logging niceties
+rich
+typer
+structlog
+
+# Docs
+mdformat
+mdformat-black
+
+# Type stubs
+types-setuptools
