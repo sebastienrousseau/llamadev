@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Test double for `curl`, scoped to the runtime-hook's HTTP readiness probe.
+# Records argv to $STUB_LOG. Steerable via env:
+#   STUB_CURL_ALWAYS_FAIL=1   every probe fails (server never comes up)
+#   STUB_CURL_FAIL_UNTIL=N     first N probes fail, the rest succeed
+#                              (requires STUB_CURL_COUNTER=<file> for state)
+printf 'curl %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+if [ "${STUB_CURL_ALWAYS_FAIL:-0}" = "1" ]; then
+  exit 1
+fi
+fail_until="${STUB_CURL_FAIL_UNTIL:-0}"
+if [ "$fail_until" -gt 0 ] && [ -n "${STUB_CURL_COUNTER:-}" ]; then
+  n=0
+  [ -f "$STUB_CURL_COUNTER" ] && n="$(cat "$STUB_CURL_COUNTER")"
+  n=$((n + 1))
+  printf '%s' "$n" > "$STUB_CURL_COUNTER"
+  [ "$n" -le "$fail_until" ] && exit 1
+fi
+exit 0
