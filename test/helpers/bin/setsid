@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Test double for `setsid`. Records argv to $STUB_LOG and returns WITHOUT
+# exec'ing its command, so no real `ollama serve`/`ollama pull` is spawned
+# under test.
+printf 'setsid %s\n' "$*" >> "${STUB_LOG:-/dev/null}"
+exit 0

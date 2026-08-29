@@ -1,0 +1,80 @@
+# llamadev compose — fully hardened, disposable Ollama + Python dev service.
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Works with `docker compose` and `podman compose`/`podman-compose`.
+#
+# Security posture: non-root, all caps dropped, no new privileges,
+# read-only root filesystem with tmpfs for the few writable paths.
+#
+# CRITICAL: Ollama is unauthenticated. It is bound to LOOPBACK only inside
+# the container (OLLAMA_HOST=127.0.0.1) and published to 127.0.0.1 on the
+# host — never 0.0.0.0. Do not change the publish address to 0.0.0.0.
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Containerfile
+      args:
+        USERNAME: dev
+        USER_UID: "1000"
+        USER_GID: "1000"
+    image: ${IMAGE:-llamadev}:${TAG:-local}
+    # Disposable by design: don't auto-restart.
+    restart: "no"
+    init: true                       # tini as PID 1 -> clean signal handling
+    user: "1000:1000"
+    working_dir: /work
+
+    # --- Hardening -----------------------------------------------------------
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    # Writable paths on the read-only rootfs (ephemeral). The model store is a
+    # NAMED VOLUME (below), not tmpfs — models are multi-GB and must persist.
+    tmpfs:
+      - /tmp:mode=1777,nosuid,nodev
+      - /home/dev/.cache:mode=0700,uid=1000,gid=1000,nosuid,nodev
+      - /home/dev/.local/state:mode=0700,uid=1000,gid=1000,nosuid,nodev
+
+    # Loopback-only, unauthenticated Ollama. Keep it on 127.0.0.1.
+    environment:
+      OLLAMA_HOST: "127.0.0.1:11434"
+      OLLAMA_MODELS: "/home/dev/.ollama"
+      # Opt-in: pull the default model on first start (multi-GB download).
+      LLAMADEV_AUTO_PULL: "${LLAMADEV_AUTO_PULL:-0}"
+      OLLAMA_DEFAULT_MODEL: "${OLLAMA_DEFAULT_MODEL:-qwen2.5-coder}"
+
+    # --- Resource limits (LLM inference is memory-hungry) --------------------
+    # 8g is a realistic floor for a 7B model quantised to ~q4. Raise it if you
+    # run larger models; lower it and Ollama may OOM mid-inference.
+    pids_limit: 512
+    mem_limit: 8g
+    memswap_limit: 8g
+    cpus: 4.0
+
+    # Publish ONLY to host loopback. The service has no auth; never 0.0.0.0.
+    ports:
+      - "127.0.0.1:11434:11434"
+
+    # --- Volumes: your code (bind) + the persistent model store (named) ------
+    volumes:
+      - type: bind
+        source: .
+        target: /work
+      - type: volume
+        source: ollama-models
+        target: /home/dev/.ollama
+
+    # Secrets/config are runtime-only; never baked in. Copy env.example -> .env
+    # (which is gitignored and dockerignored) and it is loaded here.
+    env_file:
+      - path: .env
+        required: false
+
+    # Interactive by default (override CMD for one-shot use).
+    stdin_open: true
+    tty: true
+
+volumes:
+  ollama-models: {}

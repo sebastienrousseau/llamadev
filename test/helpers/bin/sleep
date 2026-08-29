@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0 OR MIT
+# Test double for `sleep` — returns immediately so the runtime-hook's bounded
+# readiness wait loop does not actually pause the suite.
+exit 0
