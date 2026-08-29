@@ -9,7 +9,9 @@
 <p align="center">
   A portable, disposable development container that pairs a
   loopback-only <b>Ollama</b> runtime with a hardened, hash-locked
-  <b>Python</b> LLM toolchain and boots the developer's own dotfiles.
+  <b>Python</b> LLM toolchain on the
+  <a href="https://github.com/sebastienrousseau/langdev">langdev</a>
+  core and boots the developer's own dotfiles.
 </p>
 
 <p align="center">
@@ -26,21 +28,21 @@
 
 **Getting started**
 
-- [Quick start](#quick-start) — clone, `make up`, pull a model
+- [Quick start](#quick-start) — clone, `make up`, and you are in a dev shell
 - [Why this approach?](#why-this-approach) — the choices that shape the image
 
-**What's inside**
+**What you get**
 
-- [What's inside](#whats-inside) — Ollama, the Python toolchain, the editor
-- [The developer environment IS your dotfiles](#the-developer-environment-is-your-dotfiles) — no synthetic config
+- [What's inside](#whats-inside) — the pinned toolchain, exactly
+- [The developer environment IS your dotfiles](#the-developer-environment-is-your-dotfiles) — no synthetic config, tmux loaded by default
 - [Model store](#model-store) — where the weights live
 
 **Operational**
 
-- [Security model](#security-model) — hardening, and the loopback-only Ollama
+- [Security model](#security-model) — the container threat model and controls
 - [Portability](#portability) — engines, architectures, host assumptions
 - [When not to use llamadev](#when-not-to-use-llamadev) — limitations, stated plainly
-- [Development](#development) — `make` targets, lint, scan, SBOM, CI
+- [Development](#development) — `make` targets, tests, lint, scan, SBOM, CI
 - [Documentation](#documentation) — community docs and the house style
 - [License](#license)
 
@@ -48,10 +50,8 @@
 
 ## Quick start
 
-`llamadev` is a member of the
-[`langdev`](https://github.com/sebastienrousseau/langdev) suite. Clone
-it, and one command builds the image and drops you into an interactive,
-hardened tmux shell in a fresh container:
+`llamadev` is standalone. Clone it, and one command gets you an
+interactive, hardened tmux shell in a fresh container:
 
 ```sh
 git clone https://github.com/sebastienrousseau/llamadev.git
@@ -77,25 +77,17 @@ Or have it pulled automatically, in the background, at start:
 LLAMADEV_AUTO_PULL=1 make up     # pulls qwen2.5-coder in the background
 ```
 
-Other lifecycle targets:
+Other everyday commands:
 
 ```sh
 make run CMD="ruff check ."   # one-shot command in a fresh container
-make lint                     # hadolint + shellcheck
-make scan                     # Trivy image scan (fail on HIGH/CRITICAL)
 make trash                    # remove the image + dangling build cache
 ```
 
-Compose works the same way:
-
-```sh
-docker compose up -d          # or: podman compose up -d
-docker compose exec dev bash
-```
-
-No registry pull and no base-image dependency: the image is built
-entirely from the repo you cloned, and needs no network on first launch
-apart from the model download itself.
+Your project directory is the **only** bind mount, at `/work`. No
+registry pull and no base-image dependency: the image is built entirely
+from the repo you cloned, and needs no network on first launch apart
+from the model download itself.
 
 ---
 
@@ -123,7 +115,14 @@ priority order, shape the image:
    store to a named volume. This is the default `make up` posture, not a
    hardened variant you have to remember to select.
 
-3. **Reliable and reproducible.** Everything is pinned: the Alpine base
+3. **Portable and disposable.** One OCI `Containerfile` builds with
+   Docker, Podman, Buildah, and nerdctl, for `linux/amd64` and
+   `linux/arm64`. The `Makefile` auto-detects the engine and adjusts
+   flags (SELinux `:Z` mounts) accordingly. The only bind mount is your
+   project at `/work`; `make trash` leaves nothing behind but the named
+   model volume you can delete when you are done.
+
+4. **Reliable and reproducible.** Everything is pinned: the Alpine base
    **by digest**, the Ollama runtime and the `uv` binary
    **checksum-verified**, and every Python dependency installed from a
    fully hash-locked lockfile with `uv --require-hashes`. There is no
@@ -131,14 +130,18 @@ priority order, shape the image:
    `DOTFILES_REF` to a tag or commit and the environment layer is
    reproducible too.
 
-4. **Portable and disposable.** One OCI `Containerfile` builds with
-   Docker and Podman, for `linux/amd64` and `linux/arm64`. The only bind
-   mount is your project at `/work`; `make trash` leaves nothing behind
-   but the named model volume you can delete when you are done.
+Everything language-agnostic — the entrypoint, dotfiles bootstrap, and
+`Containerfile`/`compose`/`Makefile` shape — is **vendored** from the
+langdev core under `common/` and refreshed with `make sync-common`.
+llamadev is therefore a complete, auditable unit on its own, with no
+base-image drift and no supply-chain hop at build time.
 
 ---
 
 ## What's inside
+
+Everything is pinned, and every download is checksum-verified before
+use.
 
 | Component | Detail |
 |---|---|
@@ -148,23 +151,36 @@ priority order, shape the image:
 | **Shell + multiplexer** | tmux, loaded by default; `bash`, `zoxide`, `fzf`, `fd`, `ripgrep`, `bat`, `git`, and the rest of the dotfiles' CLI expectations. |
 | **Base** | Alpine 3.22, pinned **by digest**. `tini` is PID 1 (compose sets `init: true`) for clean signal handling. |
 
-### The developer environment IS your dotfiles
+---
+
+## The developer environment IS your dotfiles
 
 llamadev does **not** ship a synthetic shell or editor config. At build
-time the image clones your chezmoi-managed **dotfiles repo** and runs
-`chezmoi apply`, so the container has the *real* bashrc, aliases, tmux
-config, and Neovim setup — **latest by default**. Pin `DOTFILES_REF` to
-a tag or commit for reproducible builds.
+time the image clones the user's chezmoi-managed **dotfiles repo** and
+runs `chezmoi apply`, so the container has the *real* bashrc, aliases,
+tmux config, and Neovim setup — **always the latest** by default. Pin
+`DOTFILES_REF` to a tag or commit for a reproducible build; the exact
+commit bundled is recorded at `~/.dotfiles.commit`.
 
-- **tmux** is installed and **loaded by default**: the entrypoint
-  attaches to (or creates) a persistent `langdev` session for
-  interactive shells. Opt out with `LANGDEV_NO_TMUX=1`.
-- The dotfiles' Neovim config is authoritative. llamadev drops **one**
-  `nvim/plugins.local/lang.lua` spec into the dotfiles' nvim
-  (auto-imported via its `plugins.local` convention) to wire
-  basedpyright and `ruff server`. Because the LSP binaries already live
-  on `PATH` in the image, Mason is not relied upon, and the plugin set
-  is baked headless at build time — **no network on first launch**.
+- **tmux is installed and loaded by default.** An interactive shell
+  attaches to (or creates) a persistent `langdev` tmux session, so panes
+  and windows survive detach. Opt out with `LANGDEV_NO_TMUX=1`.
+- **The dotfiles' Neovim config is authoritative.** llamadev drops
+  exactly one `nvim/plugins.local/lang.lua` spec into the config's
+  `plugins.local/` directory (auto-imported via that convention), so it
+  composes with the rest of your setup untouched.
+- **LSP via `nvim-lspconfig`.** Python is wired to **basedpyright** and
+  **ruff** via its native `ruff server`; because the LSP binaries
+  already live on `PATH` in the image, Mason is not relied upon and
+  there is no network on first launch.
+- **Baked, offline-ready.** The full plugin set (yours plus this spec)
+  is baked headless at build time from your dotfiles'
+  `nvim/lazy-lock.json`, so the container is reproducible and needs no
+  network on first launch.
+
+The language `PATH`/env lives in `/etc/profile.d/python.sh` — installed
+root-owned and kept **out** of the user's dotfiles so those stay
+pristine and langdev-agnostic.
 
 ### Model store
 
@@ -181,16 +197,17 @@ survive a disposable container's lifetime.
 
 llamadev inherits the full `langdev` hardening posture. The full threat
 model and the private disclosure process are in
-[`SECURITY.md`](SECURITY.md).
+[`SECURITY.md`](SECURITY.md). Enforced by `compose.yaml` and mirrored in
+`make run` / `make shell`:
 
 - **Non-root.** Runs as `dev` (UID/GID 1000); no `sudo`, no setuid
   binaries in the image.
-- **Least privilege at runtime.** Compose enforces `cap_drop: [ALL]`,
+- **Least privilege at runtime.** `cap_drop: [ALL]`,
   `security_opt: [no-new-privileges:true]`, `read_only: true` (with
-  `tmpfs` for `/tmp`, `~/.cache`, and `~/.local/state`), `pids_limit`,
-  and a realistic `mem_limit` of **8g** — LLM inference is
+  `tmpfs` for `/tmp`, `~/.cache`, and `~/.local/state`), `init: true`,
+  `pids_limit`, and a realistic `mem_limit` of **8g** — LLM inference is
   memory-hungry, so raise it for larger models; lower it and Ollama may
-  OOM mid-inference. `make up` applies the same flags on the CLI.
+  OOM mid-inference.
 - **Pinned, checksummed inputs.** Base image pinned **by digest**
   (Alpine 3.22); the Ollama binary, the `uv` binary, and every Python
   dependency are **checksum-verified** — no `curl | sh`, no unpinned
@@ -200,10 +217,12 @@ model and the private disclosure process are in
 - **No committed secrets.** No `.env` is committed or `COPY`'d into an
   image — secrets are runtime-only via `env_file`. `.dockerignore` and
   `.gitignore` block `.env` from both the build context and git.
+- **One bind mount.** The only bind mount is your project directory at
+  `/work`; the model store is a self-contained named volume.
 - **CI gates every change.** `hadolint`, `shellcheck`, `gitleaks` secret
   scanning (single pinned version), and a Trivy image scan (fail on
-  HIGH/CRITICAL) run on every push; a CycloneDX SBOM is generated on
-  build.
+  HIGH/CRITICAL) run on every push and pull request; a CycloneDX SBOM is
+  uploaded as an artifact.
 
 ### Ollama is loopback-only (important)
 
@@ -239,14 +258,6 @@ not open a public issue.
 
 Stated plainly, so you can rule it out fast:
 
-- **You need GPU-accelerated inference.** The image ships the CPU
-  runners only — the CUDA/ROCm libraries are stripped to keep it small,
-  and the default posture drops all capabilities and forbids privilege
-  escalation. Device passthrough runs against the grain of the design.
-- **You need to expose the model API to other hosts.** llamadev binds
-  Ollama to loopback on purpose; serving it on a network requires
-  authentication llamadev does not provide, and a deliberate,
-  documented relaxation of the publish rule.
 - **You want a production inference server.** This is a *development*
   environment — editor, LSP, test tooling, a shell. Ship a separate,
   slimmer, authenticated image for a real serving workload.
@@ -254,19 +265,29 @@ Stated plainly, so you can rule it out fast:
   user's dotfiles. Without a chezmoi dotfiles repo you lose the main
   point, though the hardening and toolchain layers still stand on their
   own.
+- **You need GPU-accelerated inference.** The image ships the CPU
+  runners only — the CUDA/ROCm libraries are stripped to keep it small,
+  and the default posture drops all capabilities and forbids privilege
+  escalation. Device passthrough runs against the grain of the design.
+- **You need to expose the model API to other hosts.** llamadev binds
+  Ollama to loopback on purpose; serving it on a network requires
+  authentication llamadev does not provide, and a deliberate, documented
+  relaxation of the publish rule.
 - **You are on a platform without Docker or Podman.** There is no
-  VM-less fallback; the suite targets an OCI engine on Linux, macOS, or
+  VM-less fallback; llamadev targets an OCI engine on Linux, macOS, or
   Windows/WSL2.
 
 ---
 
 ## Development
 
-The per-repo `Makefile` exposes the whole lifecycle:
+The `Makefile` exposes the full lifecycle and auto-detects `docker` or
+`podman` (adding `:Z` SELinux mount flags for Podman), so the same
+commands work with either engine:
 
 ```sh
 make up          # build + interactive tmux dev shell (alias: make shell)
-make run CMD=… # one-shot command in a fresh container
+make run CMD=…   # one-shot command in a fresh container
 make build       # build the image for the host arch
 make buildx      # multi-arch build (linux/amd64, linux/arm64)
 make lint        # hadolint the Containerfile + shellcheck the scripts
@@ -276,13 +297,44 @@ make trash       # remove the image and dangling build cache
 make sync-common # refresh common/ from the langdev source
 ```
 
-Language-agnostic files live under `common/` and are vendored from
-`langdev`; refresh them with `make sync-common LANGDEV=../langdev`.
+### Tests and coverage
 
-CI (`.github/workflows/ci.yml`) runs the lint, secret-scan, and
-build/scan jobs on every push and pull request. Contributions require
-signed commits and Conventional Commit messages — see
-[`CONTRIBUTING.md`](CONTRIBUTING.md).
+The language-agnostic shell core — `common/bootstrap-dotfiles.sh` and
+`common/entrypoint.sh` — is vendored verbatim from the
+[`langdev`](https://github.com/sebastienrousseau/langdev) core and
+refreshed with `make sync-common`. That core is unit-tested with
+[bats-core](https://github.com/bats-core/bats-core) under
+[kcov](https://github.com/SimonKagstrom/kcov) in the langdev repo, whose
+`make test` / `make coverage` gate **fails below 95 % line coverage**.
+The tests are hermetic — `git`, `chezmoi`, `nvim`, `tmux`, and `rsync`
+are test doubles on a closed `PATH`, so no network or container is
+needed. The suite and its coverage gate are documented in
+[langdev's `test/README.md`](https://github.com/sebastienrousseau/langdev/blob/main/test/README.md).
+
+### CI and security workflows
+
+This repo's [`.github/workflows/ci.yml`](.github/workflows/ci.yml) gates
+every push and pull request with `hadolint`, `shellcheck`, `gitleaks`
+secret scanning, a Docker build, a Trivy image scan (fail on
+HIGH/CRITICAL), and a CycloneDX SBOM artifact. The suite's OpenSSF
+hardening workflows are maintained in the langdev core and provisioned
+across the suite from
+[`templates/github-workflows/`](https://github.com/sebastienrousseau/langdev/tree/main/templates/github-workflows):
+
+| Workflow | What it gates |
+|---|---|
+| `ci.yml` | shellcheck, hadolint, gitleaks, Docker build, Trivy image scan (fail HIGH/CRITICAL), CycloneDX SBOM |
+| `scorecard.yml` | OpenSSF Scorecard, results published + SARIF to code-scanning |
+| `sast.yml` | ShellCheck + Trivy config + Checkov, SARIF → code-scanning |
+| `dependency-review.yml` | dependency + action changes reviewed on every PR |
+
+The OpenSSF Best-Practices self-assessment lives in the langdev core's
+[`doc/CII-BEST-PRACTICES.md`](https://github.com/sebastienrousseau/langdev/blob/main/doc/CII-BEST-PRACTICES.md);
+a maintainer can apply the branch-protection ruleset with langdev's
+[`scripts/set-branch-protection.sh`](https://github.com/sebastienrousseau/langdev/blob/main/scripts/set-branch-protection.sh).
+
+Contributions require signed commits and Conventional Commit messages —
+see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ---
 
@@ -290,15 +342,17 @@ signed commits and Conventional Commit messages — see
 
 | Document | What it covers |
 |---|---|
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | The container workflow: build/lint/scan/sbom, signed commits, Conventional Commits. |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | The container workflow: build/test/lint/scan/sbom, signed commits, Conventional Commits. |
 | [`SECURITY.md`](SECURITY.md) | The container threat model and the private disclosure process. |
+| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community standards and enforcement. |
 | [`GOVERNANCE.md`](GOVERNANCE.md) | Who decides what, and how the maintainer base is meant to grow. |
 | [`SUPPORT.md`](SUPPORT.md) | Where to go for questions, bugs, and feature requests. |
-| [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md) | Community standards and enforcement. |
 | [`CHANGELOG.md`](CHANGELOG.md) | Notable changes, Keep a Changelog format. |
+| [langdev `doc/CII-BEST-PRACTICES.md`](https://github.com/sebastienrousseau/langdev/blob/main/doc/CII-BEST-PRACTICES.md) | OpenSSF Best-Practices self-assessment for the suite. |
 
-The house style every suite README follows lives in the `langdev` repo's
-[`STYLE.md`](https://github.com/sebastienrousseau/langdev/blob/main/STYLE.md).
+llamadev follows the langdev suite's house style — see
+[`STYLE.md`](https://github.com/sebastienrousseau/langdev/blob/main/STYLE.md)
+in the `langdev` core.
 
 ---
 
@@ -310,7 +364,8 @@ Licensed under either of
 - MIT license ([`LICENSE-MIT`](LICENSE-MIT))
 
 at your option. The suite is dual-licensed `Apache-2.0 OR MIT`; every
-file carries an `SPDX-License-Identifier: Apache-2.0 OR MIT` header.
+non-vendored file carries an `SPDX-License-Identifier: Apache-2.0 OR MIT`
+header.
 
 Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
