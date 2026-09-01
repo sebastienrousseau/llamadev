@@ -1,5 +1,4 @@
 #!/usr/bin/env bats
-# bats file_tags=lang
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 # Unit tests for llamadev's language layer:
 #   * dotfiles.d/llamadev.sh — the profile fragment sourced by login shells:

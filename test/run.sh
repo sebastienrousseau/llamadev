@@ -33,26 +33,13 @@ rm -rf "$COV_DIR"
 mkdir -p "$COV_DIR"
 
 # kcov traces every bash subprocess bats spawns; --include-pattern narrows the
-# report to the common core scripts under test (stubs and bats internals
-# excluded).
-#
-# The language tests (test/lang.bats) drive llamadev.sh + runtime-hook.sh with
-# a CLOSED test PATH (stubs only, no system binaries) so the ollama/curl/no-
-# network branches are deterministic. That closed PATH is incompatible with
-# kcov's bash-coverage instrumentation, which needs real tools on PATH — so the
-# language layer runs OUTSIDE kcov (below) and is validated but not coverage-
-# gated. Everything else runs under kcov and is measured.
+# report to the three scripts under test (stubs and bats internals excluded).
 kcov \
   --clean \
-  --include-pattern=bootstrap-dotfiles.sh,entrypoint.sh,langdev-sync,doctor.sh,explorer.sh,mcp-server.sh,ai-pack.sh,muxtree.sh,tmux-ide.sh \
+  --include-pattern=bootstrap-dotfiles.sh,entrypoint.sh,langdev-sync,llamadev.sh,runtime-hook.sh,doctor.sh,explorer.sh,mcp-server.sh,ai-pack.sh,muxtree.sh,tmux-ide.sh \
   --exclude-pattern=/test/,/helpers/ \
   "$COV_DIR" \
-  bats --recursive --filter-tags '!lang' "$TEST_DIR"
-
-# Validate the language layer outside kcov (the `lang`-tagged tests in
-# test/lang.bats; closed-PATH stubs, see note above).
-echo "language tests (lang-tagged — validated without coverage instrumentation):"
-bats --recursive --filter-tags 'lang' "$TEST_DIR"
+  bats --recursive "$TEST_DIR"
 
 # Prefer kcov's merged summary; fall back to the first coverage.json emitted.
 summary="$(find "$COV_DIR" -name 'coverage.json' -path '*merged*' 2>/dev/null | head -n1)"
