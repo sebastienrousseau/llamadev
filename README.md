@@ -11,7 +11,8 @@
   loopback-only <b>Ollama</b> runtime with a hardened, hash-locked
   <b>Python</b> LLM toolchain on the
   <a href="https://github.com/sebastienrousseau/langdev">langdev</a>
-  core and boots the developer's own dotfiles.
+  core — with a 4-pane TMUX IDE, Model Context Protocol (MCP) AI agent
+  tooling, mobile WebTTY, and the developer's own dotfiles.
 </p>
 
 <p align="center">
@@ -34,6 +35,7 @@
 **What you get**
 
 - [What's inside](#whats-inside) — the pinned toolchain, exactly
+- [Developer & AI capabilities](#developer--ai-capabilities) — TMUX IDE, MCP server, `ai-pack`, WebTTY
 - [The developer environment IS your dotfiles](#the-developer-environment-is-your-dotfiles) — no synthetic config, tmux loaded by default
 - [Model store](#model-store) — where the weights live
 
@@ -82,6 +84,18 @@ Other everyday commands:
 ```sh
 make run CMD="ruff check ."   # one-shot command in a fresh container
 make trash                    # remove the image + dangling build cache
+```
+
+### Remote & Mobile Web Access
+
+Reach the same hardened environment from any iPad, tablet, or web
+browser — the model API stays on container loopback throughout:
+
+```sh
+make web         # dark-themed WebTTY (ttyd) at http://localhost:7681
+make web-auth    # WebTTY with password auth: make web-auth AUTH="user:pass"
+make mosh        # roaming UDP shell that survives cellular IP handovers
+make doctor      # system diagnostics (engine, tools, linters, clipboard)
 ```
 
 Your project directory is the **only** bind mount, at `/work`. No
@@ -153,6 +167,36 @@ use.
 
 ---
 
+## Developer & AI capabilities
+
+llamadev ships the shared langdev IDE and AI-agent tooling, vendored under
+`common/` and installed into the image, all wired to the loopback-only
+Ollama runtime:
+
+- **4-pane TMUX IDE (`Prefix + i`).** `tmux-ide` lays out a project
+  explorer (`langdev-explorer`), a Neovim editor pane wired to
+  **basedpyright + `ruff server`**, an integrated terminal with the
+  Python + Ollama toolchain on `PATH`, and a dedicated AI-agent pane.
+- **Parallel AI task worktrees (`muxtree` / `Prefix + m`).** Pairs Git
+  worktrees with dedicated tmux sessions (`muxtree new <branch>`,
+  `muxtree list`, `muxtree switch`) so humans and agents work isolated
+  branches without collisions.
+- **Model Context Protocol (MCP) server (`mcp-server`).** A JSON-RPC 2.0
+  stdio server exposing workspace tools (`list_files`, `read_file`,
+  `git_status`, `git_diff`, `run_tests`, `run_command`); the
+  `common/mcp.json` template drops into Claude Code, Cursor, or Aider.
+- **AI context packing (`ai-pack`).** Bundles the repository into
+  token-efficient XML or Markdown for prompt injection
+  (`ai-pack --format markdown -o context.md`) — feed it straight to a
+  local `ollama run qwen2.5-coder`.
+- **Mobile WebTTY + Mosh.** `make web` / `make web-auth` serve a
+  dark-themed browser IDE via `ttyd`; `make mosh` gives a roaming UDP
+  shell. The Ollama API stays on container loopback regardless.
+- **Diagnostics (`make doctor`).** `common/doctor.sh` checks the
+  container engine, tools, linters, and clipboard.
+
+---
+
 ## The developer environment IS your dotfiles
 
 llamadev does **not** ship a synthetic shell or editor config. At build
@@ -178,7 +222,7 @@ commit bundled is recorded at `~/.dotfiles.commit`.
   `nvim/lazy-lock.json`, so the container is reproducible and needs no
   network on first launch.
 
-The language `PATH`/env lives in `/etc/profile.d/python.sh` — installed
+The language `PATH`/env lives in `/etc/profile.d/llamadev.sh` — installed
 root-owned and kept **out** of the user's dotfiles so those stay
 pristine and langdev-agnostic.
 
@@ -290,6 +334,11 @@ make up          # build + interactive tmux dev shell (alias: make shell)
 make run CMD=…   # one-shot command in a fresh container
 make build       # build the image for the host arch
 make buildx      # multi-arch build (linux/amd64, linux/arm64)
+make web         # WebTTY browser IDE on port 7681 (make web-auth for auth)
+make mosh        # roaming UDP mosh session
+make doctor      # container & system diagnostic healthcheck
+make test        # run the hermetic bats unit suite under kcov (>=95%)
+make coverage    # alias for test; HTML report lands in coverage/
 make lint        # hadolint the Containerfile + shellcheck the scripts
 make scan        # Trivy vulnerability scan (fail on HIGH/CRITICAL)
 make sbom        # CycloneDX SBOM via syft
@@ -299,15 +348,20 @@ make sync-common # refresh common/ from the langdev source
 
 ### Tests and coverage
 
-The language-agnostic shell core — `common/bootstrap-dotfiles.sh` and
-`common/entrypoint.sh` — is vendored verbatim from the
+The language-agnostic shell core — the entrypoint, dotfiles bootstrap,
+`langdev-sync`, and the IDE/AI tooling (`tmux-ide`, `muxtree`,
+`mcp-server`, `ai-pack`, `explorer`, `doctor`) under `common/` — is
+vendored verbatim from the
 [`langdev`](https://github.com/sebastienrousseau/langdev) core and
-refreshed with `make sync-common`. That core is unit-tested with
+refreshed with `make sync-common`. It is unit-tested here with
 [bats-core](https://github.com/bats-core/bats-core) under
-[kcov](https://github.com/SimonKagstrom/kcov) in the langdev repo, whose
-`make test` / `make coverage` gate **fails below 95 % line coverage**.
-The tests are hermetic — `git`, `chezmoi`, `nvim`, `tmux`, and `rsync`
-are test doubles on a closed `PATH`, so no network or container is
+[kcov](https://github.com/SimonKagstrom/kcov); `make test` /
+`make coverage` **fail below 95 % line coverage**. The suite also covers
+llamadev's own language layer — `dotfiles.d/llamadev.sh` and
+`runtime-hook.sh` (the loopback-only Ollama startup, its graceful
+degradation, and the opt-in model pull). The tests are hermetic —
+`git`, `chezmoi`, `nvim`, `tmux`, `rsync`, `ollama`, and `curl` are test
+doubles on a closed `PATH`, so no network, server, or container is
 needed. The suite and its coverage gate are documented in
 [langdev's `test/README.md`](https://github.com/sebastienrousseau/langdev/blob/main/test/README.md).
 
