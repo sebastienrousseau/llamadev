@@ -42,20 +42,17 @@ mkdir -p "$COV_DIR"
 # kcov's bash-coverage instrumentation, which needs real tools on PATH — so the
 # language layer runs OUTSIDE kcov (below) and is validated but not coverage-
 # gated. Everything else runs under kcov and is measured.
-common_bats=()
-while IFS= read -r _f; do common_bats+=("$_f"); done \
-  < <(find "$TEST_DIR" -maxdepth 1 -name '*.bats' ! -name 'lang.bats' | sort)
-
 kcov \
   --clean \
   --include-pattern=bootstrap-dotfiles.sh,entrypoint.sh,langdev-sync,doctor.sh,explorer.sh,mcp-server.sh,ai-pack.sh,muxtree.sh,tmux-ide.sh \
   --exclude-pattern=/test/,/helpers/ \
   "$COV_DIR" \
-  bats "${common_bats[@]}"
+  bats --recursive --filter-tags '!lang' "$TEST_DIR"
 
-# Validate the language layer outside kcov (closed-PATH stubs; see note above).
-echo "language tests (test/lang.bats — validated without coverage instrumentation):"
-bats "$TEST_DIR/lang.bats"
+# Validate the language layer outside kcov (the `lang`-tagged tests in
+# test/lang.bats; closed-PATH stubs, see note above).
+echo "language tests (lang-tagged — validated without coverage instrumentation):"
+bats --recursive --filter-tags 'lang' "$TEST_DIR"
 
 # Prefer kcov's merged summary; fall back to the first coverage.json emitted.
 summary="$(find "$COV_DIR" -name 'coverage.json' -path '*merged*' 2>/dev/null | head -n1)"
