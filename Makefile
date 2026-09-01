@@ -9,6 +9,8 @@ IMAGE ?= $(notdir $(CURDIR))
 TAG   ?= local
 REF   := $(IMAGE):$(TAG)
 PLATFORMS ?= linux/amd64,linux/arm64
+PORT  ?= 7681
+AUTH  ?= dev:langdev
 
 # --- Engine autodetection (docker preferred, podman fallback) ----------------
 ENGINE ?= $(shell command -v docker >/dev/null 2>&1 && echo docker || echo podman)
@@ -20,6 +22,8 @@ else
 endif
 # Persistent, per-image model store (models are multi-GB — a named volume,
 # not tmpfs). Ollama is unauthenticated, so publish ONLY to host loopback.
+# 8g memory: LLM inference needs materially more headroom than a plain
+# compiler toolchain, so llamadev raises the default over the shared 2g.
 RUN_FLAGS := --rm -it \
   --user 1000:1000 \
   --read-only \
@@ -60,6 +64,25 @@ shell: build ## Start an interactive dev shell in a fresh container
 	mkdir -p work
 	$(ENGINE) run $(RUN_FLAGS) $(REF)
 
+.PHONY: web
+web: build ## Start WebTTY on port 7681 (iPad/browser access: make web PORT=7681)
+	mkdir -p work
+	$(ENGINE) run $(RUN_FLAGS) -p $(PORT):$(PORT) $(REF) ttyd -p $(PORT) -t fontSize=15 -t theme='{"background": "#1a1b26"}' tmux-ide --launch
+
+.PHONY: web-auth
+web-auth: build ## Start WebTTY with auth: make web-auth AUTH="user:pass"
+	mkdir -p work
+	$(ENGINE) run $(RUN_FLAGS) -p $(PORT):$(PORT) $(REF) ttyd -p $(PORT) -c $(AUTH) -t fontSize=15 -t theme='{"background": "#1a1b26"}' tmux-ide --launch
+
+.PHONY: mosh
+mosh: build ## Start container with UDP port range for Mosh roaming
+	mkdir -p work
+	$(ENGINE) run $(RUN_FLAGS) -p 60000-60010:60000-60010/udp $(REF)
+
+.PHONY: doctor
+doctor: ## Run system & container runtime health checks
+	@./common/doctor.sh
+
 .PHONY: run
 run: build ## Run a one-shot command: make run CMD="..."
 	mkdir -p work
@@ -83,6 +106,22 @@ scan: build ## Vulnerability-scan the built image (needs trivy)
 sbom: build ## Generate a CycloneDX SBOM (needs syft)
 	@command -v syft >/dev/null && syft $(REF) -o cyclonedx-json > sbom.cdx.json && echo "wrote sbom.cdx.json" || echo "syft not installed — skipping"
 
+.PHONY: test
+test: ## Run the bats unit tests under kcov, fail if coverage < 95%
+	@./test/run.sh
+
+.PHONY: coverage
+coverage: test ## Alias for `test`; the HTML report lands in coverage/
+	@echo "coverage report: coverage/index.html"
+
 .PHONY: sync-common
 sync-common: ## Refresh common/ from the langdev source (LANGDEV=path-or-url)
 	@./bin/langdev-sync $(if $(LANGDEV),--source "$(LANGDEV)",)
+
+.PHONY: site
+site: ## Build static documentation and landing site with SSG
+	@command -v ssg >/dev/null 2>&1 && (cd website && ssg build -f ssg.toml) || echo "SSG not installed. Run: cargo install ssg"
+
+.PHONY: serve
+serve: site ## Serve static documentation locally on port 8000
+	@command -v ssg >/dev/null 2>&1 && (cd website && ssg serve -f ssg.toml) || python3 -m http.server 8000 -d website/public

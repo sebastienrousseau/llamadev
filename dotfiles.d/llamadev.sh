@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # llamadev — language PATH/env for login shells.
 # SPDX-License-Identifier: Apache-2.0 OR MIT
 #
