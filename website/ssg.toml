@@ -1,0 +1,16 @@
+site_name = "llamadev"
+site_title = "llamadev — Portable, Hardened Ollama & Local LLM AI Developer Container"
+site_description = "A portable, disposable development container pairing a loopback-only Ollama runtime with a hardened Python LLM toolchain, 4-pane TMUX IDE, and stdio MCP server."
+base_url = "https://llamadev.hyperbox.run/"
+language = "en-GB"
+
+content_dir = "content"
+template_dir = "_layouts"
+output_dir = "public"
+
+[agents]
+agents_txt = true
+ai_plugin = true
+
+[agents.mcp]
+enabled = true
